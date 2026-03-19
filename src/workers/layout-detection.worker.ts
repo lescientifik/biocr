@@ -43,9 +43,7 @@ function initOpenCV(): Promise<void> {
 			}
 			// biome-ignore lint/suspicious/noExplicitAny: OpenCV.js is untyped
 			if (typeof (globalThis as any).cv?.Mat !== "function") {
-				throw new Error(
-					"OpenCV loaded but cv.Mat is not available after 10s",
-				);
+				throw new Error("OpenCV loaded but cv.Mat is not available after 10s");
 			}
 			console.log("[layout-worker] OpenCV initialized, cv.Mat available");
 		})();
@@ -64,7 +62,10 @@ self.onmessage = async (e: MessageEvent<DetectionRequest>) => {
 		const regions = detectRegions(image, pageIndex);
 		console.log(
 			`[layout-worker] page=${pageIndex} detected ${regions.length} regions:`,
-			regions.map((r) => `${r.type}(${r.bbox.x},${r.bbox.y},${r.bbox.width}x${r.bbox.height})`),
+			regions.map(
+				(r) =>
+					`${r.type}(${r.bbox.x},${r.bbox.y},${r.bbox.width}x${r.bbox.height})`,
+			),
 		);
 		self.postMessage({
 			regions,

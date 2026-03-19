@@ -23,6 +23,7 @@
 		"clsx": "^2.1.1",
 		"fabric": "^6.6.3",
 		"lucide-react": "^0.577.0",
+		"onnxruntime-web": "^1.24.3",
 		"pdfjs-dist": "^4.10.38",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",

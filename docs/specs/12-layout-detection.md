@@ -639,23 +639,21 @@ And detectionState passe à { status: "done" }
 
 ## Feature: Détection de layout — Tier 2 (YOLO11n-doclaynet via ONNX Runtime Web)
 
-**Note : Tier 2 sera implémenté après Tier 1. Cette section spécifie le comportement cible.**
-
 ### Scenario: Tier 2 utilise le même contrat que Tier 1
 
 ```gherkin
-Given Tier 2 est activé (future feature)
-Then le détecteur YOLO remplace le détecteur OpenCV dans le worker
-And il accepte le même DetectionRequest et retourne le même DetectionResponse
-And les mêmes filtres, cache, et zone system s'appliquent
-And l'UI ne change pas (même bouton, même ProgressBar)
+Given Tier 2 est sélectionné comme détecteur
+Then le worker YOLO accepte le même DetectionRequest { image, pageIndex, nonce }
+And retourne le même DetectionResponse { regions: LayoutRegion[], pageIndex, nonce, error? }
+And les mêmes filtres, cache, et zone system s'appliquent sans modification
+And la même ProgressBar et le même bouton sont utilisés
 ```
 
-### Scenario: Tier 2 ajoute le type "title" au mapping
+### Scenario: Tier 2 ajoute le type "title" au LayoutRegionType
 
 ```gherkin
 Given Tier 2 est utilisé pour la détection
-Then le type "title" est disponible en plus des types Tier 1
+Then LayoutRegionType est étendu avec "title" : "table" | "text" | "header" | "footer" | "figure" | "title"
 And le popover des filtres affiche une checkbox "Titre" supplémentaire (désactivée par défaut)
 And le mapping DocLayNet → LayoutRegionType est :
   | Classe DocLayNet   | Mapping LayoutRegionType |
@@ -670,48 +668,158 @@ And le mapping DocLayNet → LayoutRegionType est :
   | Formula            | text                     |
   | Footnote           | footer                   |
   | List-item          | text                     |
+And un index de classe hors de ce mapping est silencieusement ignoré (la box est supprimée)
 ```
 
-### Scenario: Le modèle YOLO11n-doclaynet est chargé depuis public/models/
+### Scenario: Le modèle YOLO est chargé une seule fois dans le worker (lazy singleton)
 
 ```gherkin
-Given le détecteur YOLO est initialisé pour la première fois
-When le worker charge le modèle
-Then il charge yolo11n-doclaynet.onnx (~6 MB) depuis /models/
-And ONNX Runtime Web WASM backend est chargé depuis /onnx/
-And le modèle est compilé/initialisé une seule fois (singleton)
-And le chargement initial prend 2-5 secondes
+Given le détecteur YOLO est sélectionné
+When la première détection est lancée
+Then le worker charge yolo11n-doclaynet.onnx (< 7 MB) depuis /models/
+And ONNX Runtime Web WASM backend est chargé depuis le CDN jsdelivr (version = celle de package.json)
+And une session InferenceSession est créée une seule fois (singleton dans le worker)
+And les appels suivants réutilisent la session existante sans re-télécharger
 ```
 
-### Scenario: WebGPU est utilisé sur le thread principal, pas dans le worker
+### Scenario: Indicateur de chargement du modèle YOLO au premier lancement
 
 ```gherkin
-Given le navigateur supporte WebGPU
-When Tier 2 est utilisé avec le backend WebGPU
-Then l'inférence ONNX tourne sur le thread PRINCIPAL (WebGPU non disponible dans les workers)
-And l'UI reste réactive car l'inférence est GPU-bound (pas CPU-blocking)
-And le fallback WASM dans le worker est utilisé si WebGPU n'est pas disponible
+Given le détecteur YOLO est sélectionné
+And c'est la première détection (le modèle n'est pas encore chargé)
+When la détection est lancée
+Then un toast info s'affiche : "Chargement du modèle YOLO…"
+And la ProgressBar s'affiche normalement pendant le chargement + détection
+And lors des détections suivantes, le toast de chargement n'apparaît pas
 ```
 
-### Scenario: Pré-processing de l'image pour YOLO
+### Scenario: ONNX Runtime WASM backend dans le worker
 
 ```gherkin
-Given une page doit être analysée par YOLO
+Given le worker YOLO est initialisé
+When la session ONNX est créée
+Then executionProviders = ["wasm"]
+And numThreads = 1
+And les fichiers WASM (.wasm) sont servis depuis le CDN jsdelivr avec la même version que le package onnxruntime-web
+And env.wasm.wasmPaths est configuré vers "https://cdn.jsdelivr.net/npm/onnxruntime-web@{version}/dist/"
+```
+
+### Scenario: Pré-processing de l'image pour YOLO (letterbox)
+
+```gherkin
+Given une page de dimensions W×H doit être analysée par YOLO
 When l'image est préparée pour l'inférence
-Then l'image est redimensionnée à 640x640 pixels (taille d'entrée YOLO)
-And les pixels sont normalisés en float32 [0, 1]
-And le ratio d'aspect est préservé avec du padding blanc (letterboxing)
-And les coordonnées de sortie sont re-mappées vers les dimensions originales
+Then le ratio d'aspect est calculé : scale = min(640/W, 640/H)
+And l'image est redimensionnée à (W*scale, H*scale)
+And le padding gris (RGB 114,114,114) est ajouté pour atteindre 640×640 (letterboxing standard YOLO)
+And les pixels sont convertis en Float32Array normalisée [0, 1]
+And le layout mémoire est CHW (channels-first) : tensor shape [1, 3, 640, 640]
+And les offsets de padding (dx, dy) sont conservés pour le re-mapping des coordonnées
 ```
 
 ### Scenario: Post-processing NMS (Non-Maximum Suppression)
 
 ```gherkin
-Given l'inférence YOLO retourne des bounding boxes brutes
+Given l'inférence YOLO retourne le tenseur de sortie [1, 15, 8400]
 When le post-processing s'exécute
-Then NMS est appliqué avec IoU threshold = 0.5
-And les boxes redondantes sont supprimées
-And seules les boxes avec confiance >= 0.3 sont conservées
+Then les 8400 détections sont transposées en [8400, 15] (4 coords cx,cy,w,h + 11 scores de classe)
+And pour chaque détection, le score max parmi les 11 classes est extrait
+And les détections avec score max < 0.3 sont éliminées
+And NMS greedy est appliqué par classe avec IoU threshold = 0.5
+And les coordonnées (cx, cy, w, h) sont converties en (x, y, width, height) pixels de l'image source
+And le re-mapping inverse le letterbox : soustraction des offsets (dx, dy) puis division par scale
+```
+
+### Scenario: Choix du détecteur dans l'UI
+
+```gherkin
+Given un fichier est chargé (image ou PDF)
+When l'utilisateur ouvre le popover de détection (icône engrenage)
+Then un sélecteur "Détecteur" est visible avec les options "OpenCV" et "YOLO"
+And le choix par défaut est "OpenCV"
+And le choix est stocké dans le layout store (en mémoire, non persisté entre sessions)
+And changer de détecteur invalide le cache de détection existant
+```
+
+### Scenario: Le worker YOLO est un singleton séparé du worker OpenCV
+
+```gherkin
+Given Tier 2 est sélectionné comme détecteur
+When la détection est lancée
+Then un worker dédié yolo-detection.worker.ts est créé (singleton)
+And le worker OpenCV existant n'est PAS instancié ni utilisé
+And le worker YOLO suit le même pattern que worker-wrapper.ts :
+  | Propriété         | Valeur                          |
+  | Sérialisation     | File d'attente de promesses     |
+  | Corrélation       | Nonce unique par requête        |
+  | Timeout           | 60 secondes par page            |
+  | Transfer          | image.data via Transferable     |
+And terminateYoloWorker() est appelé à la fermeture du fichier
+And les deux workers ne coexistent jamais en mémoire
+```
+
+### Scenario: Détection YOLO produit des régions en coordonnées image source
+
+```gherkin
+Given le détecteur YOLO traite une image de 1240×1754 pixels
+When les résultats sont retournés au main thread
+Then chaque LayoutRegion.bbox est en coordonnées pixels de l'image source (1240×1754)
+And les coordonnées sont re-mappées depuis l'espace letterbox 640×640 vers l'image originale
+And le format DetectionResponse est identique à Tier 1
+And le cache, les filtres par type, et la conversion en zones auto fonctionnent sans modification
+```
+
+### Scenario: Basculer de détecteur invalide le cache
+
+```gherkin
+Given une détection Tier 1 a été effectuée et les zones sont affichées
+When l'utilisateur change le détecteur de "OpenCV" à "YOLO"
+Then le cache de détection est invalidé (clearDetectionCache)
+And les auto-zones existantes sont supprimées (clearAutoZones)
+And un toast info : "Détecteur changé — relancez la détection"
+And le bouton "Détecter zones" redevient actif
+And la détection n'est PAS relancée automatiquement (l'utilisateur doit cliquer)
+```
+
+### Scenario: Basculer de détecteur pendant une détection en cours est bloqué
+
+```gherkin
+Given une détection est en cours (detectionState.status = "running")
+When l'utilisateur tente de changer le détecteur
+Then le sélecteur de détecteur est désactivé (disabled)
+And l'utilisateur doit annuler ou attendre la fin avant de changer
+```
+
+### Scenario: Erreur de chargement du modèle YOLO
+
+```gherkin
+Given le détecteur YOLO est sélectionné
+And le fichier yolo11n-doclaynet.onnx n'est pas accessible (erreur réseau ou 404)
+When la détection est lancée
+Then un toast d'erreur s'affiche : "Impossible de charger le modèle YOLO"
+And detectionState passe à { status: "idle" }
+And le worker YOLO est terminé (pour permettre un retry propre)
+And l'utilisateur peut relancer la détection ou basculer sur OpenCV
+```
+
+### Scenario: Les filtres de type incluent "title" uniquement quand YOLO est sélectionné
+
+```gherkin
+Given le détecteur YOLO est sélectionné
+When l'utilisateur ouvre le popover des filtres
+Then la checkbox "Titre" est visible en plus des types existants (Tableau, Texte, En-tête, Pied de page, Figure)
+And "Titre" est désactivé par défaut (non coché) dans enabledTypes
+And quand le détecteur OpenCV est sélectionné, la checkbox "Titre" disparaît du popover
+And si "Titre" était activé, les auto-zones de type "title" sont supprimées lors du retour à OpenCV
+```
+
+### Scenario: Le label "Titre" est affiché sur les auto-zones YOLO de type title
+
+```gherkin
+Given YOLO a détecté une région de type "title" et le filtre "Titre" est activé
+When les zones auto sont affichées sur le canvas
+Then la zone a le label "Titre" affiché
+And le style visuel est identique aux autres auto-zones (bordure verte pointillée, fond semi-transparent)
 ```
 
 ---

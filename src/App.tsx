@@ -19,6 +19,10 @@ import {
 	detectInWorker,
 	terminateDetectionWorker,
 } from "@/lib/layout-detection/worker-wrapper.ts";
+import {
+	detectInYoloWorker,
+	terminateYoloWorker,
+} from "@/lib/layout-detection/yolo-worker-wrapper.ts";
 import type { ZoneProvider } from "@/lib/ocr-coordinator.ts";
 import { processZones } from "@/lib/ocr-coordinator.ts";
 import * as ocrEngine from "@/lib/ocr-engine.ts";
@@ -270,6 +274,7 @@ function App() {
 	const toggleType = useLayoutStore((s) => s.toggleType);
 	const setDetectionCache = useLayoutStore((s) => s.setDetectionCache);
 	const clearDetectionCache = useLayoutStore((s) => s.clearDetectionCache);
+	const detectorType = useLayoutStore((s) => s.detectorType);
 	const resetLayoutStore = useLayoutStore((s) => s.reset);
 
 	const zoom = useViewportStore((s) => s.zoom);
@@ -332,6 +337,7 @@ function App() {
 			detectionAbortRef.current?.abort();
 			ocrCacheRef.current.clear();
 			terminateDetectionWorker();
+			terminateYoloWorker();
 			terminatePreprocessWorker();
 			clearZones();
 			clearDetectionCache();
@@ -395,6 +401,7 @@ function App() {
 		ocrCacheRef.current.clear();
 		terminatePreprocessWorker();
 		terminateDetectionWorker();
+		terminateYoloWorker();
 		resetLayoutStore();
 		pdfProxyRef.current = null;
 		clearFile();
@@ -552,7 +559,10 @@ function App() {
 				if (controller.signal.aborted) break;
 
 				// Transfer imageData directly — no copy needed since we don't reuse it
-				const response = await detectInWorker(
+				const detector = useLayoutStore.getState().detectorType;
+				const detect =
+					detector === "yolo" ? detectInYoloWorker : detectInWorker;
+				const response = await detect(
 					{
 						data: imageData.data as Uint8ClampedArray<ArrayBuffer>,
 						width: imageData.width,
@@ -672,6 +682,16 @@ function App() {
 	const handleClearAutoZones = useCallback(() => {
 		clearAutoZones();
 	}, [clearAutoZones]);
+
+	const handleDetectorChange = useCallback(
+		(type: "opencv" | "yolo") => {
+			if (useLayoutStore.getState().detection.status === "running") return;
+			useLayoutStore.getState().setDetectorType(type);
+			clearAutoZones();
+			showInfo("Détecteur changé — relancez la détection");
+		},
+		[clearAutoZones],
+	);
 
 	const handleDetectionCancel = useCallback(() => {
 		detectionAbortRef.current?.abort();
@@ -966,6 +986,8 @@ function App() {
 						onForceRedetect={handleForceRedetect}
 						autoZoneCount={autoZoneCount}
 						onClearAutoZones={handleClearAutoZones}
+						detectorType={detectorType}
+						onDetectorChange={handleDetectorChange}
 						onFileClose={handleClose}
 						onFileBrowse={handleFileBrowse}
 						onModeChange={handleModeChange}

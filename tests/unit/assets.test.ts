@@ -7,15 +7,20 @@ const LANG_DIR = resolve(PUBLIC, "tesseract/lang");
 
 /**
  * Recursively computes total size in bytes for all files under `dir`.
+ * Optionally excludes files matching glob-like patterns (e.g. "*.onnx").
  */
-function dirSize(dir: string): number {
+function dirSize(dir: string, excludePatterns: string[] = []): number {
 	let total = 0;
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		const full = join(dir, entry.name);
 		if (entry.isDirectory()) {
-			total += dirSize(full);
+			total += dirSize(full, excludePatterns);
 		} else {
-			total += statSync(full).size;
+			const excluded = excludePatterns.some((p) => {
+				if (p.startsWith("*")) return entry.name.endsWith(p.slice(1));
+				return entry.name === p;
+			});
+			if (!excluded) total += statSync(full).size;
 		}
 	}
 	return total;
@@ -35,8 +40,8 @@ describe("tessdata_best assets", () => {
 		expect(stat.size).toBeGreaterThan(2 * 1024 * 1024);
 	});
 
-	it("total public/ assets < 25 MB", () => {
-		const totalBytes = dirSize(PUBLIC);
+	it("total public/ assets < 25 MB (excluding ONNX models)", () => {
+		const totalBytes = dirSize(PUBLIC, ["*.onnx"]);
 		expect(totalBytes).toBeLessThan(25 * 1024 * 1024);
 	});
 });

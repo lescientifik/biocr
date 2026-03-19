@@ -3,6 +3,7 @@ import {
 	LanguageSelector,
 } from "@/components/LanguageSelector.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import type { DetectorType } from "@/store/layout-store.ts";
 import type { InteractionMode } from "@/types/index.ts";
 import type { LayoutRegionType } from "@/types/layout.ts";
 import { useCallback, useState } from "react";
@@ -42,6 +43,11 @@ interface ToolbarProps {
 	/** Called when the user clicks "Effacer zones auto". */
 	onClearAutoZones?: () => void;
 
+	/** Current detector type. */
+	detectorType?: DetectorType;
+	/** Called when the user changes the detector. */
+	onDetectorChange?: (type: DetectorType) => void;
+
 	onFileClose: () => void;
 	onFileBrowse: () => void;
 	onModeChange: (mode: InteractionMode) => void;
@@ -68,6 +74,7 @@ const REGION_TYPE_LABELS: { type: LayoutRegionType; label: string }[] = [
 	{ type: "header", label: "En-tête" },
 	{ type: "footer", label: "Pied de page" },
 	{ type: "figure", label: "Figure" },
+	{ type: "title", label: "Titre" },
 ];
 
 /** Main application toolbar, hidden when no file is loaded. */
@@ -88,6 +95,8 @@ export function Toolbar({
 	onForceRedetect = () => {},
 	autoZoneCount = 0,
 	onClearAutoZones = () => {},
+	detectorType = "opencv",
+	onDetectorChange = () => {},
 	onFileClose,
 	onFileBrowse,
 	onModeChange,
@@ -208,9 +217,35 @@ export function Toolbar({
 				</Button>
 				{filterOpen && !isDetecting && (
 					<div className="absolute left-0 top-full z-50 mt-1 w-52 rounded-lg border bg-white p-3 shadow-lg">
+						<p className="mb-2 text-xs font-semibold">Détecteur</p>
+						<fieldset
+							className="mb-3 space-y-1"
+							aria-label="Choix du détecteur"
+						>
+							{(
+								[
+									{ value: "opencv", label: "OpenCV" },
+									{ value: "yolo", label: "YOLO" },
+								] as const
+							).map(({ value, label: radioLabel }) => (
+								<label key={value} className="flex items-center gap-2 text-xs">
+									<input
+										type="radio"
+										name="detector-type"
+										value={value}
+										checked={detectorType === value}
+										disabled={isDetecting}
+										onChange={() => onDetectorChange(value)}
+									/>
+									{radioLabel}
+								</label>
+							))}
+						</fieldset>
 						<p className="mb-2 text-xs font-semibold">Types de régions</p>
 						<ul className="space-y-1.5">
-							{REGION_TYPE_LABELS.map(({ type, label }) => (
+							{REGION_TYPE_LABELS.filter(
+								({ type }) => type !== "title" || detectorType === "yolo",
+							).map(({ type, label }) => (
 								<li key={type}>
 									<label className="flex items-center gap-2 text-xs">
 										<input

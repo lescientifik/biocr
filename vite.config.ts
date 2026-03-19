@@ -18,5 +18,6 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		include: ["tesseract.js"],
+		exclude: ["onnxruntime-web"],
 	},
 });

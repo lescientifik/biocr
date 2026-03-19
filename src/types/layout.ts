@@ -4,7 +4,8 @@ export type LayoutRegionType =
 	| "text"
 	| "header"
 	| "footer"
-	| "figure";
+	| "figure"
+	| "title";
 
 /** A detected region in a page image. */
 export type LayoutRegion = {
