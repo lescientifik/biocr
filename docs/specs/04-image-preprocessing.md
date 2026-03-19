@@ -2,6 +2,8 @@
 description: Spécifications du pipeline de prétraitement d'image avant OCR.
 ---
 
+> ⚠️ REMPLACÉE par la spec 08-preprocessing-v2.md
+
 # Prétraitement d'image
 
 ## Objectif

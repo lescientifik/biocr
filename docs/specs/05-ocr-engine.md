@@ -2,6 +2,8 @@
 description: Spécifications du moteur OCR — Tesseract.js, langues, progression, résultats, erreurs.
 ---
 
+> ⚠️ REMPLACÉE par la spec 09-ocr-engine-v2.md
+
 # Moteur OCR
 
 ## Tesseract.js
