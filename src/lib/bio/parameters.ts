@@ -391,7 +391,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 	},
 	{
 		name: "Protéines totales",
-		abbreviations: ["PT", "Prot"],
+		abbreviations: ["Prot"],
 		aliases: ["Protidémie", "Protides totaux", "Proteines totales"],
 		units: [{ unit: "g/L", min: 20, max: 120 }],
 		category: "Bilan hépatique",
@@ -474,7 +474,10 @@ export const BIO_PARAMETERS: BioParameter[] = [
 		name: "INR",
 		abbreviations: [],
 		aliases: ["International Normalized Ratio"],
-		units: [{ unit: "", min: 0.5, max: 15 }],
+		units: [
+			{ unit: "", min: 0.5, max: 15 },
+			{ unit: "ratio", min: 0.5, max: 15 },
+		],
 		category: "Hémostase",
 	},
 	{

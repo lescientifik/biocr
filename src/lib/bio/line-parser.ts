@@ -166,14 +166,19 @@ function matchUnit(text: string): string {
 	const cleaned = trimmed.replace(/[(\[].*$/, "").trim();
 
 	// Try known units (longest first for greedy match)
+	const firstWord = cleaned.split(/\s/)[0] ?? "";
 	for (const unit of KNOWN_UNITS) {
-		if (cleaned.toLowerCase().startsWith(unit.toLowerCase())) {
+		const unitLower = unit.toLowerCase();
+		const cleanedLower = cleaned.toLowerCase();
+		// Single-char units (%, s) must match the whole first word to avoid false positives
+		if (unit.length === 1) {
+			if (firstWord.toLowerCase() === unitLower) return unit;
+		} else if (cleanedLower.startsWith(unitLower)) {
 			return unit;
 		}
 	}
 
 	// If nothing matched but there's text, take the first word as unit
-	const firstWord = cleaned.split(/\s/)[0];
 	if (firstWord && /^[a-zA-Zµ%°/²]+$/.test(firstWord)) {
 		return firstWord;
 	}

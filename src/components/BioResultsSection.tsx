@@ -33,9 +33,9 @@ export function BioResultsSection({ ocrText }: BioResultsSectionProps) {
 				</span>
 			</div>
 			<div className="space-y-0.5">
-				{results.map((r) => (
+				{results.map((r, i) => (
 					<div
-						key={`${r.name}-${r.unit}`}
+						key={`${i}-${r.name}-${r.unit}`}
 						className={`flex items-baseline gap-2 font-mono text-sm ${
 							r.flagged ? "text-red-600" : "text-gray-900"
 						}`}

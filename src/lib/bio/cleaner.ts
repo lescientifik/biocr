@@ -15,7 +15,8 @@ export function cleanOcrText(text: string): string {
 }
 
 function cleanLine(line: string): string {
-	let result = line.trim();
+	// Remove BOM, zero-width characters, and non-breaking spaces
+	let result = line.replace(/\uFEFF|\u200B|\u200C|\u200D|\u00A0/g, " ").trim();
 
 	// Remove common OCR artifacts
 	// Remove stray pipe characters (table borders)
