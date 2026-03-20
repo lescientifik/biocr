@@ -169,6 +169,13 @@ Phase 3
 
 ---
 
+## Architectural decisions
+
+1. **Levenshtein reuse**: `lookup.ts` imports `levenshtein` from `post-processing/medical-dictionary.ts`. No duplication.
+2. **Pipeline ordering**: Raw OCR → `postProcess` (contextual char substitutions, unit normalization) → stored in `OcrZoneResult.text` → `extractBioResults` runs on the already-cleaned text. This is intentional: `postProcess` fixes OCR errors that help the bio parser.
+3. **BioResult storage**: Not stored in state. `BioResultsSection` component calls `extractBioResults(ocrText)` with `useMemo` — computed on render, memoized by text.
+4. **Performance**: O(1) exact/abbreviation lookup via pre-built `Map` indexes. Fuzzy matching (O(n)) only for unmatched terms. No performance concern for typical lab reports.
+
 ## Out of scope
 
 - Auto-correction of flagged values
@@ -176,3 +183,4 @@ Phase 3
 - PDF table structure detection
 - Reference range extraction
 - Historical trend analysis
+- Feature flag / document type detection (pipeline runs on all OCR text; bio section hidden when no parameters found)
