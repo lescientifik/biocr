@@ -79,4 +79,33 @@ describe("Line parser", () => {
 		expect(result).not.toBeNull();
 		expect(result?.param.name).toBe("Polynucléaires neutrophiles");
 	});
+
+	it("handles parameter names with numbers: CA 19-9", () => {
+		const result = parseLine("CA 19-9 35.5 UI/mL");
+		expect(result).not.toBeNull();
+		expect(result?.param.name).toBe("CA 19-9");
+		expect(result?.value).toBeCloseTo(35.5);
+		expect(result?.unit).toBe("UI/mL");
+	});
+
+	it("handles parameter names with numbers: Cyfra 21-1", () => {
+		const result = parseLine("Cyfra 21-1 2.3 ng/mL");
+		expect(result).not.toBeNull();
+		expect(result?.param.name).toBe("Cyfra 21-1");
+		expect(result?.value).toBeCloseTo(2.3);
+		expect(result?.unit).toBe("ng/mL");
+	});
+
+	it("handles HbA1c (name contains digits)", () => {
+		const result = parseLine("HbA1c 6.5 %");
+		expect(result).not.toBeNull();
+		expect(result?.param.name).toBe("HbA1c");
+		expect(result?.value).toBeCloseTo(6.5);
+		expect(result?.unit).toBe("%");
+	});
+
+	it("returns null for reference range lines", () => {
+		expect(parseLine("[0.70 - 1.10]")).toBeNull();
+		expect(parseLine("(60 - 110)")).toBeNull();
+	});
 });

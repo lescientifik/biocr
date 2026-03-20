@@ -49,18 +49,28 @@ const KNOWN_UNITS = [
 	"mmol/mol",
 ];
 
+const KNOWN_UNITS_LOWER = new Set(KNOWN_UNITS.map((u) => u.toLowerCase()));
+
 /**
- * Regex to find the first numeric value in text.
+ * Regex to find numeric values in text.
  * Matches: optional sign, digits, optional decimal (dot or comma) + digits.
  */
 const NUMERIC_RE = /[+-]?\d+(?:[.,]\d+)?/g;
+
+type Candidate = {
+	param: BioParameter;
+	value: number;
+	unit: string;
+	/** Higher is better: 2 = exact name + known unit, 1 = has unit, 0 = no unit */
+	score: number;
+};
 
 /**
  * Parse a single cleaned line to extract a biological parameter, value, and unit.
  * Returns null if the line doesn't contain a recognizable bio parameter + value.
  *
- * Strategy: find numeric values in the line, then check if the text before
- * each one matches a known bio parameter (by name, abbreviation, or fuzzy match).
+ * Strategy: find all numeric values, try each as the result value, score matches,
+ * and pick the best one. Prefers matches with known units and exact name matches.
  */
 export function parseLine(line: string): ParsedLine | null {
 	const trimmed = line.trim();
@@ -69,6 +79,8 @@ export function parseLine(line: string): ParsedLine | null {
 	// Find all numeric values in the line
 	const matches = [...trimmed.matchAll(NUMERIC_RE)];
 	if (matches.length === 0) return null;
+
+	let best: Candidate | null = null;
 
 	// For each numeric match, try to identify a parameter name before it
 	for (const numMatch of matches) {
@@ -95,10 +107,26 @@ export function parseLine(line: string): ParsedLine | null {
 			.trim();
 		const unit = matchUnit(afterNumber);
 
-		return { param, value, unit };
+		// Score: prefer matches with known units and longer name matches
+		let score = 0;
+		if (unit && isKnownUnit(unit)) score += 2;
+		else if (unit) score += 1;
+		// Bonus for exact name match (not fuzzy)
+		if (lookupExact(cleanedName)) score += 1;
+
+		if (!best || score > best.score) {
+			best = { param, value, unit, score };
+		}
 	}
 
-	return null;
+	return best
+		? { param: best.param, value: best.value, unit: best.unit }
+		: null;
+}
+
+/** Check if a unit string is in our known units list. */
+function isKnownUnit(unit: string): boolean {
+	return KNOWN_UNITS_LOWER.has(unit.toLowerCase());
 }
 
 /**
