@@ -53,6 +53,7 @@ describe("Layout store", () => {
 				],
 			],
 			sourceImageSizes: [{ width: 1000, height: 800 }],
+			detectedTypes: ["table" as const],
 		};
 		useLayoutStore.getState().setDetectionCache(cache);
 		expect(useLayoutStore.getState().detectionCache).toEqual(cache);
@@ -63,6 +64,7 @@ describe("Layout store", () => {
 			fileId: "test:1:2",
 			regionsByPage: [],
 			sourceImageSizes: [],
+			detectedTypes: [],
 		});
 		useLayoutStore.getState().addDeletedRegionKey("0:1");
 		useLayoutStore.getState().clearDetectionCache();
@@ -88,29 +90,4 @@ describe("Layout store", () => {
 		expect(useLayoutStore.getState().deletedRegionKeys).toEqual([]);
 	});
 
-	it("detectorType initial value is 'opencv'", () => {
-		expect(useLayoutStore.getState().detectorType).toBe("opencv");
-	});
-
-	it("setDetectorType('yolo') updates detectorType", () => {
-		useLayoutStore.getState().setDetectorType("yolo");
-		expect(useLayoutStore.getState().detectorType).toBe("yolo");
-	});
-
-	it("setDetectorType invalidates the detection cache", () => {
-		useLayoutStore.getState().setDetectionCache({
-			fileId: "test:1:2",
-			regionsByPage: [],
-			sourceImageSizes: [],
-		});
-		useLayoutStore.getState().setDetectorType("yolo");
-		expect(useLayoutStore.getState().detectionCache).toBeNull();
-	});
-
-	it("setDetectorType clears deletedRegionKeys", () => {
-		useLayoutStore.getState().addDeletedRegionKey("0:1");
-		useLayoutStore.getState().addDeletedRegionKey("1:0");
-		useLayoutStore.getState().setDetectorType("yolo");
-		expect(useLayoutStore.getState().deletedRegionKeys).toEqual([]);
-	});
 });

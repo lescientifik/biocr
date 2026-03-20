@@ -7,7 +7,6 @@
       "dependencies": {
         "@base-ui/react": "^1.3.0",
         "@fontsource-variable/geist": "^5.2.8",
-        "@techstark/opencv-js": "^4.12.0-release.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "fabric": "^6.6.3",
@@ -413,8 +412,6 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.2.1", "", { "os": "win32", "cpu": "x64" }, "sha512-rbO34G5sMWWyrN/idLeVxAZgAKWrn5LiR3/I90Q9MkA67s6T1oB0xtTe+0heoBvHSpbU9Mk7i6uwJnpo4u21XQ=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.2.1", "", { "dependencies": { "@tailwindcss/node": "4.2.1", "@tailwindcss/oxide": "4.2.1", "tailwindcss": "4.2.1" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7" } }, "sha512-TBf2sJjYeb28jD2U/OhwdW0bbOsxkWPwQ7SrqGf9sVcoYwZj7rkXljroBO9wKBut9XnmQLXanuDUeqQK0lGg/w=="],
-
-    "@techstark/opencv-js": ["@techstark/opencv-js@4.12.0-release.1", "", {}, "sha512-LtTaph9v/HqLPXEg3m1xs2h7QJh10pUpuDT0nj8g77lelWnTwwQrehtd+fXElLOdrkqc4Fea6Z/sJBvEJLYPfw=="],
 
     "@testing-library/dom": ["@testing-library/dom@10.4.1", "", { "dependencies": { "@babel/code-frame": "^7.10.4", "@babel/runtime": "^7.12.5", "@types/aria-query": "^5.0.1", "aria-query": "5.3.0", "dom-accessibility-api": "^0.5.9", "lz-string": "^1.5.0", "picocolors": "1.1.1", "pretty-format": "^27.0.2" } }, "sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg=="],
 

@@ -88,7 +88,7 @@ describe("Toolbar — détection de layout", () => {
 		expect(screen.getByLabelText("Filtres de détection")).toBeDisabled();
 	});
 
-	it("popover affiche 5 checkboxes", async () => {
+	it("popover affiche 6 checkboxes", async () => {
 		render(
 			<Toolbar
 				{...createProps({
@@ -98,7 +98,7 @@ describe("Toolbar — détection de layout", () => {
 		);
 		await userEvent.click(screen.getByLabelText("Filtres de détection"));
 		const checkboxes = screen.getAllByRole("checkbox");
-		expect(checkboxes).toHaveLength(5);
+		expect(checkboxes).toHaveLength(6);
 	});
 
 	it("Tableau et Texte cochés par défaut", async () => {

@@ -5,10 +5,6 @@ import {
 	isCacheValid,
 	regionsToAutoZones,
 } from "@/lib/layout-detection/cache.ts";
-import {
-	classifyRegion,
-	filterSmallRegions,
-} from "@/lib/layout-detection/classify.ts";
 import { _resetIdCounter } from "@/lib/zone-manager.ts";
 import { useLayoutStore } from "@/store/layout-store.ts";
 import { useZoneStore } from "@/store/zone-store.ts";
@@ -181,52 +177,6 @@ describe("Layout detection integration flow", () => {
 			expect(detectionCache).toBeNull();
 			// Without cache there's nothing to filter/add
 			expect(useZoneStore.getState().zones).toHaveLength(0);
-		});
-	});
-
-	// -----------------------------------------------------------------------
-	// Pipeline classify + filter end-to-end
-	// -----------------------------------------------------------------------
-
-	describe("classify + filter pipeline with realistic data", () => {
-		it("classifies and filters a mixed set of regions correctly", () => {
-			const pageSize = { width: 800, height: 1000 };
-			const pageArea = pageSize.width * pageSize.height;
-
-			// Raw bounding boxes from "detection"
-			const rawBboxes = [
-				{ x: 50, y: 20, width: 700, height: 80 }, // header area (center y=60 < 150)
-				{ x: 50, y: 200, width: 700, height: 400 }, // middle
-				{ x: 50, y: 650, width: 700, height: 200 }, // middle
-				{ x: 50, y: 940, width: 700, height: 50 }, // footer area (center y=965 > 920)
-				{ x: 10, y: 500, width: 5, height: 5 }, // tiny → filtered by area
-			];
-
-			// Step 1: filter small regions
-			const filtered = filterSmallRegions(rawBboxes, pageArea);
-			expect(filtered).toHaveLength(4); // tiny one removed
-
-			// Step 2: classify each
-			const classified = filtered.map((bbox) => {
-				// Simulate grid intersections only for the large middle region
-				const hasGrid = bbox.y === 200;
-				// Simulate density — low for header/footer
-				const density = bbox.y === 200 ? 0.3 : 0.15;
-				return classifyRegion(bbox, pageSize, hasGrid, density);
-			});
-
-			expect(classified[0]).toBe("header");
-			expect(classified[1]).toBe("table"); // has grid intersections
-			expect(classified[2]).toBe("text"); // middle, no grid, density > 5%
-			expect(classified[3]).toBe("footer");
-		});
-
-		it("figure classification for low-density non-header/footer region", () => {
-			const pageSize = { width: 500, height: 1000 };
-			const bbox = { x: 50, y: 400, width: 200, height: 200 };
-			// Low density, no grid → figure
-			const result = classifyRegion(bbox, pageSize, false, 0.03);
-			expect(result).toBe("figure");
 		});
 	});
 
@@ -525,10 +475,6 @@ describe("Layout detection integration flow", () => {
 
 			const result = getFilteredRegions(regionsByPage, [], []);
 			expect(result).toEqual([]);
-		});
-
-		it("filterSmallRegions with empty input returns empty array", () => {
-			expect(filterSmallRegions([], 100000)).toEqual([]);
 		});
 
 		it("clearAutoZones preserves selection on manual zone", () => {

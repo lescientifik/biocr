@@ -43,13 +43,13 @@ vi.mock("@/lib/preprocessing/worker-wrapper.ts", () => ({
 	terminatePreprocessWorker: vi.fn(),
 }));
 
-const mockDetectInWorker = vi.fn();
-const mockTerminateDetectionWorker = vi.fn();
+const mockDetectInYoloWorker = vi.fn();
+const mockTerminateYoloWorker = vi.fn();
 
-vi.mock("@/lib/layout-detection/worker-wrapper.ts", () => ({
-	detectInWorker: (...args: unknown[]) => mockDetectInWorker(...args),
-	terminateDetectionWorker: (...args: unknown[]) =>
-		mockTerminateDetectionWorker(...args),
+vi.mock("@/lib/layout-detection/yolo-worker-wrapper.ts", () => ({
+	detectInYoloWorker: (...args: unknown[]) => mockDetectInYoloWorker(...args),
+	terminateYoloWorker: (...args: unknown[]) =>
+		mockTerminateYoloWorker(...args),
 }));
 
 const mockShowWarning = vi.fn();
@@ -156,8 +156,8 @@ function setupWithPdf(pageCount = 3) {
 
 describe("App — detection integration", () => {
 	beforeEach(() => {
-		mockDetectInWorker.mockReset();
-		mockTerminateDetectionWorker.mockReset();
+		mockDetectInYoloWorker.mockReset();
+		mockTerminateYoloWorker.mockReset();
 		mockRenderPageForDetection.mockReset();
 		mockLoadAndRenderPdf.mockReset();
 		mockShowWarning.mockReset();
@@ -207,6 +207,7 @@ describe("App — detection integration", () => {
 				fileId,
 				regionsByPage: [[makeRegion("table"), makeRegion("text")]],
 				sourceImageSizes: [{ width: 800, height: 600 }],
+				detectedTypes: ["table", "text"],
 			},
 		});
 		render(<App />);
@@ -218,8 +219,8 @@ describe("App — detection integration", () => {
 		const zones = useZoneStore.getState().zones;
 		expect(zones.length).toBe(2);
 		expect(zones.every((z) => z.source === "auto")).toBe(true);
-		// detectInWorker should NOT have been called
-		expect(mockDetectInWorker).not.toHaveBeenCalled();
+		// detectInYoloWorker should NOT have been called
+		expect(mockDetectInYoloWorker).not.toHaveBeenCalled();
 	});
 
 	// ---- PDF multi-page detection → auto zones ----
@@ -241,7 +242,7 @@ describe("App — detection integration", () => {
 			width: 100,
 			height: 100,
 		});
-		mockDetectInWorker.mockResolvedValue({
+		mockDetectInYoloWorker.mockResolvedValue({
 			regions: [makeRegion("table")],
 			pageIndex: 0,
 			nonce: 1,
@@ -265,7 +266,7 @@ describe("App — detection integration", () => {
 		// 1 table region per page x 3 pages
 		expect(zones.length).toBe(3);
 		expect(zones.every((z) => z.source === "auto")).toBe(true);
-		expect(mockDetectInWorker).toHaveBeenCalledTimes(3);
+		expect(mockDetectInYoloWorker).toHaveBeenCalledTimes(3);
 	});
 
 	// ---- Toggle type OFF removes zones of that type ----
@@ -321,6 +322,7 @@ describe("App — detection integration", () => {
 				fileId,
 				regionsByPage: [[makeRegion("table"), makeRegion("text")]],
 				sourceImageSizes: [{ width: 800, height: 600 }],
+				detectedTypes: ["table", "text"],
 			},
 		});
 
@@ -389,6 +391,7 @@ describe("App — detection integration", () => {
 					[makeRegion("table"), makeRegion("table"), makeRegion("text")],
 				],
 				sourceImageSizes: [{ width: 800, height: 600 }],
+				detectedTypes: ["table", "text"],
 			},
 			deletedRegionKeys: ["0:0"], // first table region deleted
 		});
@@ -459,6 +462,7 @@ describe("App — detection integration", () => {
 				fileId,
 				regionsByPage: [[makeRegion("table"), makeRegion("table")]],
 				sourceImageSizes: [{ width: 100, height: 100 }],
+				detectedTypes: ["table"],
 			},
 			deletedRegionKeys: ["0:0"],
 		});
@@ -468,7 +472,7 @@ describe("App — detection integration", () => {
 			width: 100,
 			height: 100,
 		});
-		mockDetectInWorker.mockResolvedValue({
+		mockDetectInYoloWorker.mockResolvedValue({
 			regions: [makeRegion("table"), makeRegion("table")],
 			pageIndex: 0,
 			nonce: 1,
@@ -513,6 +517,7 @@ describe("App — detection integration", () => {
 				fileId,
 				regionsByPage: [[makeRegion("table")]],
 				sourceImageSizes: [{ width: 800, height: 600 }],
+				detectedTypes: ["table"],
 			},
 		});
 		useZoneStore.getState().addAutoZones([
@@ -539,7 +544,7 @@ describe("App — detection integration", () => {
 		expect(useZoneStore.getState().zones).toHaveLength(0);
 		expect(useLayoutStore.getState().detectionCache).toBeNull();
 		expect(useLayoutStore.getState().detection.status).toBe("idle");
-		expect(mockTerminateDetectionWorker).toHaveBeenCalled();
+		expect(mockTerminateYoloWorker).toHaveBeenCalled();
 	});
 
 	// ---- New file load clears detection state ----
@@ -554,6 +559,7 @@ describe("App — detection integration", () => {
 				fileId,
 				regionsByPage: [[makeRegion("table")]],
 				sourceImageSizes: [{ width: 800, height: 600 }],
+				detectedTypes: ["table"],
 			},
 		});
 
@@ -596,7 +602,7 @@ describe("App — detection integration", () => {
 			});
 		});
 
-		mockDetectInWorker.mockResolvedValue({
+		mockDetectInYoloWorker.mockResolvedValue({
 			regions: [makeRegion("table")],
 			pageIndex: 0,
 			nonce: 1,
@@ -633,7 +639,7 @@ describe("App — detection integration", () => {
 			width: 100,
 			height: 100,
 		});
-		mockDetectInWorker.mockResolvedValue({
+		mockDetectInYoloWorker.mockResolvedValue({
 			regions: [],
 			pageIndex: 0,
 			nonce: 1,
@@ -689,6 +695,7 @@ describe("App — detection integration", () => {
 				fileId,
 				regionsByPage: [[makeRegion("table")]],
 				sourceImageSizes: [{ width: 800, height: 600 }],
+				detectedTypes: ["table"],
 			},
 		});
 
@@ -730,9 +737,9 @@ describe("App — detection integration", () => {
 			height: 100,
 		});
 
-		// detectInWorker hangs until we abort
+		// detectInYoloWorker hangs until we abort
 		let workerResolve: ((v: unknown) => void) | null = null;
-		mockDetectInWorker.mockImplementation(
+		mockDetectInYoloWorker.mockImplementation(
 			() =>
 				new Promise((resolve) => {
 					workerResolve = resolve;

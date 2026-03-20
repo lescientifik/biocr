@@ -16,10 +16,6 @@ import {
 	regionsToAutoZones,
 } from "@/lib/layout-detection/cache.ts";
 import {
-	detectInWorker,
-	terminateDetectionWorker,
-} from "@/lib/layout-detection/worker-wrapper.ts";
-import {
 	detectInYoloWorker,
 	terminateYoloWorker,
 } from "@/lib/layout-detection/yolo-worker-wrapper.ts";
@@ -274,7 +270,6 @@ function App() {
 	const toggleType = useLayoutStore((s) => s.toggleType);
 	const setDetectionCache = useLayoutStore((s) => s.setDetectionCache);
 	const clearDetectionCache = useLayoutStore((s) => s.clearDetectionCache);
-	const detectorType = useLayoutStore((s) => s.detectorType);
 	const resetLayoutStore = useLayoutStore((s) => s.reset);
 
 	const zoom = useViewportStore((s) => s.zoom);
@@ -336,7 +331,6 @@ function App() {
 			abortControllerRef.current?.abort();
 			detectionAbortRef.current?.abort();
 			ocrCacheRef.current.clear();
-			terminateDetectionWorker();
 			terminateYoloWorker();
 			terminatePreprocessWorker();
 			clearZones();
@@ -400,7 +394,6 @@ function App() {
 		detectionAbortRef.current?.abort();
 		ocrCacheRef.current.clear();
 		terminatePreprocessWorker();
-		terminateDetectionWorker();
 		terminateYoloWorker();
 		resetLayoutStore();
 		pdfProxyRef.current = null;
@@ -490,8 +483,12 @@ function App() {
 		if (!currentFile) return;
 		const fileId = buildFileId(currentFile);
 
-		// Cache hit → instant recreation
-		if (cache && isCacheValid(cache, fileId)) {
+		// Cache hit → instant recreation (only if all requested types were detected)
+		const cacheCoversTypes =
+			cache &&
+			isCacheValid(cache, fileId) &&
+			types.every((t) => cache.detectedTypes.includes(t));
+		if (cacheCoversTypes) {
 			clearAutoZones();
 			const filtered = getFilteredRegions(cache.regionsByPage, types, deleted);
 			const autoZones = regionsToAutoZones(
@@ -559,10 +556,7 @@ function App() {
 				if (controller.signal.aborted) break;
 
 				// Transfer imageData directly — no copy needed since we don't reuse it
-				const detector = useLayoutStore.getState().detectorType;
-				const detect =
-					detector === "yolo" ? detectInYoloWorker : detectInWorker;
-				const response = await detect(
+				const response = await detectInYoloWorker(
 					{
 						data: imageData.data as Uint8ClampedArray<ArrayBuffer>,
 						width: imageData.width,
@@ -575,15 +569,16 @@ function App() {
 					regionsByPage[i] = [];
 					errorPages++;
 				} else {
-					regionsByPage[i] = response.regions;
+					// Only keep regions matching the requested types
+					regionsByPage[i] = response.regions.filter((r) =>
+						types.includes(r.type),
+					);
 
 					// Add auto zones for this page immediately
-					const filtered = response.regions
-						.map((r, idx) => ({
-							region: r,
-							regionKey: `${i}:${idx}`,
-						}))
-						.filter(({ region }) => types.includes(region.type));
+					const filtered = regionsByPage[i].map((r, idx) => ({
+						region: r,
+						regionKey: `${i}:${idx}`,
+					}));
 					const currentPages = useAppStore.getState().pages;
 					const autoZones = regionsToAutoZones(
 						filtered,
@@ -625,7 +620,7 @@ function App() {
 			}
 		} else {
 			// Cache complete results
-			setDetectionCache({ fileId, regionsByPage, sourceImageSizes });
+			setDetectionCache({ fileId, regionsByPage, sourceImageSizes, detectedTypes: types });
 			setDetectionState({ status: "done" });
 
 			if (errorPages > 0) {
@@ -657,6 +652,11 @@ function App() {
 			if (wasEnabled) {
 				clearAutoZonesByType(type);
 			} else if (cache) {
+				// Type was not detected in this run → need re-detection
+				if (!cache.detectedTypes.includes(type)) {
+					showInfo("Relancez la détection pour inclure ce type");
+					return;
+				}
 				const filtered = getFilteredRegions(
 					cache.regionsByPage,
 					[type],
@@ -682,16 +682,6 @@ function App() {
 	const handleClearAutoZones = useCallback(() => {
 		clearAutoZones();
 	}, [clearAutoZones]);
-
-	const handleDetectorChange = useCallback(
-		(type: "opencv" | "yolo") => {
-			if (useLayoutStore.getState().detection.status === "running") return;
-			useLayoutStore.getState().setDetectorType(type);
-			clearAutoZones();
-			showInfo("Détecteur changé — relancez la détection");
-		},
-		[clearAutoZones],
-	);
 
 	const handleDetectionCancel = useCallback(() => {
 		detectionAbortRef.current?.abort();
@@ -986,8 +976,6 @@ function App() {
 						onForceRedetect={handleForceRedetect}
 						autoZoneCount={autoZoneCount}
 						onClearAutoZones={handleClearAutoZones}
-						detectorType={detectorType}
-						onDetectorChange={handleDetectorChange}
 						onFileClose={handleClose}
 						onFileBrowse={handleFileBrowse}
 						onModeChange={handleModeChange}

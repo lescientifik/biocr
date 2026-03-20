@@ -5,14 +5,11 @@ import type {
 } from "@/types/layout.ts";
 import { create } from "zustand";
 
-export type DetectorType = "opencv" | "yolo";
-
 type LayoutStore = {
 	detection: DetectionState;
 	enabledTypes: LayoutRegionType[];
 	detectionCache: DetectionCacheData | null;
 	deletedRegionKeys: string[];
-	detectorType: DetectorType;
 
 	setDetectionState: (state: DetectionState) => void;
 	toggleType: (type: LayoutRegionType) => void;
@@ -21,7 +18,6 @@ type LayoutStore = {
 	clearDetectionCache: () => void;
 	addDeletedRegionKey: (key: string) => void;
 	clearDeletedRegionKeys: () => void;
-	setDetectorType: (type: DetectorType) => void;
 	reset: () => void;
 };
 
@@ -30,7 +26,6 @@ const initialState = {
 	enabledTypes: ["table", "text"] as LayoutRegionType[],
 	detectionCache: null as DetectionCacheData | null,
 	deletedRegionKeys: [] as string[],
-	detectorType: "opencv" as DetectorType,
 };
 
 export const useLayoutStore = create<LayoutStore>((set) => ({
@@ -60,9 +55,6 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
 		})),
 
 	clearDeletedRegionKeys: () => set({ deletedRegionKeys: [] }),
-
-	setDetectorType: (detectorType) =>
-		set({ detectorType, detectionCache: null, deletedRegionKeys: [] }),
 
 	reset: () => set(initialState),
 }));

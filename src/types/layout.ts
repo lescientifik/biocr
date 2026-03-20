@@ -29,6 +29,8 @@ export type DetectionCacheData = {
 	fileId: string;
 	regionsByPage: LayoutRegion[][];
 	sourceImageSizes: { width: number; height: number }[];
+	/** Region types that were requested during this detection run. */
+	detectedTypes: LayoutRegionType[];
 };
 
 /** Message sent to the layout detection worker. */
