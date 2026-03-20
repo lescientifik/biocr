@@ -27,19 +27,27 @@ Feature: Biological parameter dictionary
     Given the bio parameter dictionary
     Then it contains entries for "TP", "TCA", "INR", "Fibrinogène", "D-dimères"
 
-  Scenario: Dictionary contains tumor markers
+  Scenario: Dictionary contains tumor markers and prostate markers
     Given the bio parameter dictionary
-    Then it contains entries for "PSA", "CA 125", "CA 19-9", "CA 15-3", "ACE", "AFP"
+    Then it contains entries for "PSA total", "PSA libre", "Rapport PSA libre/total"
+    And it contains entries for "CA 125", "CA 19-9", "CA 15-3", "ACE", "AFP"
+    And it contains entries for "β-HCG", "NSE", "SCC", "Cyfra 21-1"
+    And it contains entries for "Phosphatases acides"
 
   Scenario: Dictionary contains endocrinology and inflammation markers
     Given the bio parameter dictionary
-    Then it contains entries for "TSH", "T3", "T4", "Cortisol"
+    Then it contains entries for "TSH", "T3 libre", "T4 libre", "Cortisol"
     And it contains entries for "CRP", "VS", "Procalcitonine"
 
   Scenario: Dictionary contains vitamin and iron parameters
     Given the bio parameter dictionary
     Then it contains entries for "Vitamine B9", "Vitamine B12", "Vitamine D"
     And it contains entries for "Fer sérique", "Ferritine", "Transferrine", "CST"
+
+  Scenario: Dictionary contains immunology parameters
+    Given the bio parameter dictionary
+    Then it contains entries for "IgG", "IgA", "IgM"
+    And it contains entries for "Complément C3", "Complément C4"
 
   Scenario: Each parameter has required metadata fields
     Given the bio parameter dictionary
@@ -50,21 +58,38 @@ Feature: Biological parameter dictionary
     And it has a "units" field listing one or more accepted units
     And it has a "plausibleRange" field per unit with min and max values
 
-  Scenario: Lookup by abbreviation returns the correct parameter
+  Scenario: Lookup abbreviation "Hb" returns Hémoglobine
     Given the bio parameter dictionary
     When I look up "Hb"
     Then the result is the "Hémoglobine" parameter
+
+  Scenario: Lookup abbreviation "GR" returns Hématies
+    Given the bio parameter dictionary
     When I look up "GR"
     Then the result is the "Hématies" parameter
+
+  Scenario: Lookup abbreviation "GB" returns Leucocytes
+    Given the bio parameter dictionary
     When I look up "GB"
     Then the result is the "Leucocytes" parameter
 
-  Scenario: Lookup is case-insensitive
+  Scenario: Lookup is case-insensitive for "crp"
     Given the bio parameter dictionary
     When I look up "crp"
     Then the result is the "CRP" parameter
+
+  Scenario: Lookup is case-insensitive for "GLYCEMIE"
+    Given the bio parameter dictionary
     When I look up "GLYCEMIE"
     Then the result is the "Glycémie" parameter
+
+  Scenario: Same parameter with different units is validated correctly
+    Given an extracted result with name "Glycémie", value 0.95, unit "g/L"
+    When I validate against the dictionary plausible range
+    Then flagged is false
+    Given an extracted result with name "Glycémie", value 5.2, unit "mmol/L"
+    When I validate against the dictionary plausible range
+    Then flagged is false
 
   Scenario: Fuzzy lookup tolerates OCR errors
     Given the bio parameter dictionary
