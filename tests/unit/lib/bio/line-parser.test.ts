@@ -1,4 +1,4 @@
-import { parseLine } from "@/lib/bio/line-parser";
+import { parseLine, parseLineMulti } from "@/lib/bio/line-parser";
 import { describe, expect, it } from "vitest";
 
 describe("Line parser", () => {
@@ -107,5 +107,22 @@ describe("Line parser", () => {
 	it("returns null for reference range lines", () => {
 		expect(parseLine("[0.70 - 1.10]")).toBeNull();
 		expect(parseLine("(60 - 110)")).toBeNull();
+	});
+
+	it("rejects header/address lines without valid units (false positive prevention)", () => {
+		expect(parseLine("CRP 75012 Paris")).toBeNull();
+		expect(parseLine("Sodium Biologie 33000 Bordeaux")).toBeNull();
+	});
+
+	it("extracts multiple values from multi-value lines", () => {
+		const results = parseLineMulti("PNN 4.50 G/L 45 %");
+		expect(results.length).toBeGreaterThanOrEqual(1);
+		expect(results[0].param.name).toBe("Polynucléaires neutrophiles");
+		expect(results[0].value).toBeCloseTo(4.5);
+		expect(results[0].unit).toBe("g/L");
+		if (results.length >= 2) {
+			expect(results[1].value).toBeCloseTo(45);
+			expect(results[1].unit).toBe("%");
+		}
 	});
 });
