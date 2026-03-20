@@ -18,10 +18,12 @@ function formatResult(r: BioResult): string {
  */
 export function BioResultsSection({ ocrText }: BioResultsSectionProps) {
 	const results = useMemo(() => extractBioResults(ocrText), [ocrText]);
+	const copyText = useMemo(
+		() => results.map(formatResult).join("\n"),
+		[results],
+	);
 
 	if (results.length === 0) return null;
-
-	const copyText = results.map(formatResult).join("\n");
 
 	return (
 		<div data-testid="bio-results-section" className="mt-3 border-t pt-3">

@@ -45,9 +45,14 @@ export function lookupExact(term: string): BioParameter | null {
 	);
 }
 
+/** Bounded LRU cache for fuzzy lookup results (avoids repeated Levenshtein on same terms). */
+const FUZZY_CACHE_MAX = 128;
+const fuzzyCache = new Map<string, BioParameter | null>();
+
 /**
  * Fuzzy-match a term against the dictionary.
  * Uses Levenshtein distance with adaptive maxDist based on word length.
+ * Results are cached (bounded LRU, 128 entries) to avoid repeated computation.
  * Returns the best matching BioParameter, or null if no match within threshold.
  */
 export function lookupFuzzy(
@@ -61,6 +66,26 @@ export function lookupFuzzy(
 	// Don't fuzzy-match very short terms (too ambiguous)
 	if (term.length < 4) return null;
 
+	const cacheKey = maxDist !== undefined ? `${term}:${maxDist}` : term;
+	const cached = fuzzyCache.get(cacheKey);
+	if (cached !== undefined) return cached;
+
+	const result = lookupFuzzyUncached(term, maxDist);
+
+	// Bounded cache: evict oldest entry if full
+	if (fuzzyCache.size >= FUZZY_CACHE_MAX) {
+		const firstKey = fuzzyCache.keys().next().value;
+		if (firstKey !== undefined) fuzzyCache.delete(firstKey);
+	}
+	fuzzyCache.set(cacheKey, result);
+
+	return result;
+}
+
+function lookupFuzzyUncached(
+	term: string,
+	maxDist?: number,
+): BioParameter | null {
 	// Adaptive max distance: scale with word length to avoid false positives
 	// 4-5 chars → max 1, 6-8 chars → max 2, 9+ chars → max 3
 	const effectiveMaxDist =

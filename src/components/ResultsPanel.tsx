@@ -1,7 +1,12 @@
-import { BioResultsSection } from "@/components/BioResultsSection.tsx";
 import { useClipboard } from "@/hooks/useClipboard.ts";
 import type { OcrZoneResult } from "@/types/ocr.ts";
-import { useCallback, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useRef, useState } from "react";
+
+const BioResultsSection = lazy(() =>
+	import("@/components/BioResultsSection.tsx").then((m) => ({
+		default: m.BioResultsSection,
+	})),
+);
 
 interface ResultsPanelProps {
 	results: OcrZoneResult[];
@@ -173,7 +178,9 @@ export function ResultsPanel({ results, isGlobalOcr }: ResultsPanelProps) {
 					)}
 
 					{activeResult.text !== "" && (
-						<BioResultsSection ocrText={activeResult.text} />
+						<Suspense>
+							<BioResultsSection ocrText={activeResult.text} />
+						</Suspense>
 					)}
 
 					<div className="mt-3" aria-live="polite">
