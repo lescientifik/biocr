@@ -1,3 +1,4 @@
+import { BioResultsSection } from "@/components/BioResultsSection.tsx";
 import { useClipboard } from "@/hooks/useClipboard.ts";
 import type { OcrZoneResult } from "@/types/ocr.ts";
 import { useCallback, useRef, useState } from "react";
@@ -169,6 +170,10 @@ export function ResultsPanel({ results, isGlobalOcr }: ResultsPanelProps) {
 						<pre className="font-mono text-sm whitespace-pre-wrap select-text">
 							{activeResult.text}
 						</pre>
+					)}
+
+					{activeResult.text !== "" && (
+						<BioResultsSection ocrText={activeResult.text} />
 					)}
 
 					<div className="mt-3" aria-live="polite">

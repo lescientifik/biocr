@@ -48,8 +48,7 @@ const mockTerminateYoloWorker = vi.fn();
 
 vi.mock("@/lib/layout-detection/yolo-worker-wrapper.ts", () => ({
 	detectInYoloWorker: (...args: unknown[]) => mockDetectInYoloWorker(...args),
-	terminateYoloWorker: (...args: unknown[]) =>
-		mockTerminateYoloWorker(...args),
+	terminateYoloWorker: (...args: unknown[]) => mockTerminateYoloWorker(...args),
 }));
 
 const mockShowWarning = vi.fn();

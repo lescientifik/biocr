@@ -89,5 +89,4 @@ describe("Layout store", () => {
 		useLayoutStore.getState().clearDeletedRegionKeys();
 		expect(useLayoutStore.getState().deletedRegionKeys).toEqual([]);
 	});
-
 });

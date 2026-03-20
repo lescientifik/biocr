@@ -620,7 +620,12 @@ function App() {
 			}
 		} else {
 			// Cache complete results
-			setDetectionCache({ fileId, regionsByPage, sourceImageSizes, detectedTypes: types });
+			setDetectionCache({
+				fileId,
+				regionsByPage,
+				sourceImageSizes,
+				detectedTypes: types,
+			});
 			setDetectionState({ status: "done" });
 
 			if (errorPages > 0) {
