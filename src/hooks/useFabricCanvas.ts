@@ -1,3 +1,4 @@
+import { clampZoneToCanvas } from "@/lib/clamp-zone.ts";
 import { useZoneStore } from "@/store/zone-store.ts";
 import * as fabric from "fabric";
 import { useCallback, useEffect, useRef } from "react";
@@ -12,6 +13,12 @@ const AUTO_FILL = "rgba(34, 197, 94, 0.1)";
 const AUTO_DASH = [6, 4];
 
 const ZONE_STROKE_WIDTH = 2;
+
+/** Interactive properties applied to all zone rects (not labels). */
+const ZONE_INTERACTIVE_PROPS = {
+	lockRotation: true,
+	hoverCursor: "move",
+} as const;
 
 /** Label translations for auto-detected region types. */
 const LABEL_MAP: Record<string, string> = {
@@ -32,6 +39,31 @@ type FabricZoneLabel = fabric.FabricText & {
 	labelForZoneId?: number;
 };
 
+/** Finds the companion label for a given zone on the canvas. */
+function findCompanionLabel(
+	canvas: fabric.Canvas,
+	zoneId: number,
+): FabricZoneLabel | undefined {
+	return canvas
+		.getObjects()
+		.find((o) => (o as FabricZoneLabel).labelForZoneId === zoneId) as
+		| FabricZoneLabel
+		| undefined;
+}
+
+/** Repositions a companion label to the top-left corner of its zone + offset. */
+function repositionLabel(
+	canvas: fabric.Canvas,
+	zoneId: number,
+	left: number,
+	top: number,
+): void {
+	const label = findCompanionLabel(canvas, zoneId);
+	if (label) {
+		label.set({ left: left + 2, top: top + 2 });
+	}
+}
+
 /**
  * Hook that manages a Fabric.js canvas for zone drawing/selection.
  * The canvas is an overlay on top of the document viewer.
@@ -45,7 +77,8 @@ export function useFabricCanvas(
 	const drawStart = useRef({ x: 0, y: 0 });
 	const activeRect = useRef<fabric.Rect | null>(null);
 
-	const { mode, addZone, selectZone, zones, updateZone } = useZoneStore();
+	const { mode, addZone, selectZone, zones, updateZone, selectedZoneId } =
+		useZoneStore();
 
 	// Initialize Fabric canvas
 	useEffect(() => {
@@ -83,6 +116,8 @@ export function useFabricCanvas(
 		const canvas = fabricRef.current;
 		if (!canvas) return;
 
+		const currentMode = useZoneStore.getState().mode;
+
 		const existingIds = new Set(
 			canvas
 				.getObjects()
@@ -119,6 +154,7 @@ export function useFabricCanvas(
 		for (const zone of zones) {
 			if (!existingIds.has(zone.id)) {
 				const isAuto = zone.source === "auto";
+				const isDrawMode = currentMode === "draw";
 				const rect = new fabric.Rect({
 					left: zone.left,
 					top: zone.top,
@@ -129,10 +165,15 @@ export function useFabricCanvas(
 					strokeWidth: ZONE_STROKE_WIDTH,
 					strokeUniform: true,
 					strokeDashArray: isAuto ? AUTO_DASH : undefined,
+					selectable: isDrawMode,
+					evented: isDrawMode,
+					...ZONE_INTERACTIVE_PROPS,
 				}) as FabricZoneRect;
 				rect.zoneId = zone.id;
 				rect.zoneSource = zone.source ?? "manual";
 				rect.zoneRegionKey = zone.regionKey;
+				// Hide the rotation control (Fabric v6 API)
+				rect.setControlVisible("mtr", false);
 				canvas.add(rect);
 
 				// Create companion label for auto zones
@@ -156,6 +197,18 @@ export function useFabricCanvas(
 		canvas.renderAll();
 	}, [zones]);
 
+	// Sync selectedZoneId changes to Fabric active object
+	// When selectedZoneId goes to null (Escape, mode switch), discard active object
+	useEffect(() => {
+		const canvas = fabricRef.current;
+		if (!canvas) return;
+
+		if (selectedZoneId === null) {
+			canvas.discardActiveObject();
+			canvas.requestRenderAll();
+		}
+	}, [selectedZoneId]);
+
 	// Handle mode changes — also toggle pointer-events on the Fabric wrapper
 	useEffect(() => {
 		const canvas = fabricRef.current;
@@ -170,7 +223,6 @@ export function useFabricCanvas(
 
 		if (mode === "draw") {
 			canvas.defaultCursor = "crosshair";
-			canvas.hoverCursor = "crosshair";
 			for (const obj of canvas.getObjects()) {
 				// Labels should never be selectable
 				if ((obj as FabricZoneLabel).labelForZoneId !== undefined) continue;
@@ -181,6 +233,8 @@ export function useFabricCanvas(
 			canvas.defaultCursor = "grab";
 			canvas.hoverCursor = "grab";
 			canvas.discardActiveObject();
+			// Clear selectedZoneId when leaving draw mode
+			useZoneStore.getState().selectZone(null);
 			for (const obj of canvas.getObjects()) {
 				obj.selectable = false;
 				obj.evented = false;
@@ -189,7 +243,7 @@ export function useFabricCanvas(
 		canvas.renderAll();
 	}, [mode]);
 
-	// Drawing handlers
+	// Drawing handlers + object modification handlers
 	useEffect(() => {
 		const canvas = fabricRef.current;
 		if (!canvas) return;
@@ -202,9 +256,14 @@ export function useFabricCanvas(
 				const zoneId = (opt.target as FabricZoneRect).zoneId;
 				if (zoneId !== undefined) {
 					selectZone(zoneId);
+					canvas.setActiveObject(opt.target);
+					canvas.requestRenderAll();
 				}
 				return;
 			}
+
+			// Clicking on empty canvas — deselect current zone
+			selectZone(null);
 
 			isDrawing.current = true;
 			const pointer = canvas.getScenePoint(opt.e);
@@ -220,7 +279,11 @@ export function useFabricCanvas(
 				strokeWidth: ZONE_STROKE_WIDTH,
 				strokeUniform: true,
 				selectable: true,
+				evented: true,
+				...ZONE_INTERACTIVE_PROPS,
 			});
+			// Hide rotation control on newly drawn rects too
+			rect.setControlVisible("mtr", false);
 			activeRect.current = rect;
 			canvas.add(rect);
 		};
@@ -269,33 +332,50 @@ export function useFabricCanvas(
 		const onObjectModified = (opt: { target: fabric.FabricObject }) => {
 			const obj = opt.target as FabricZoneRect;
 			if (obj.zoneId !== undefined) {
-				const newLeft = obj.left ?? 0;
-				const newTop = obj.top ?? 0;
-				const newWidth = (obj.width ?? 0) * (obj.scaleX ?? 1);
-				const newHeight = (obj.height ?? 0) * (obj.scaleY ?? 1);
+				const rawLeft = obj.left ?? 0;
+				const rawTop = obj.top ?? 0;
+				const rawWidth = (obj.width ?? 0) * (obj.scaleX ?? 1);
+				const rawHeight = (obj.height ?? 0) * (obj.scaleY ?? 1);
 
-				updateZone(obj.zoneId, {
-					left: newLeft,
-					top: newTop,
-					width: newWidth,
-					height: newHeight,
+				// Clamp to canvas bounds and minimum size
+				const clamped = clampZoneToCanvas(
+					{ left: rawLeft, top: rawTop, width: rawWidth, height: rawHeight },
+					{ width: canvas.width, height: canvas.height },
+				);
+
+				updateZone(obj.zoneId, clamped);
+
+				// Reset scale and apply clamped position/size to the Fabric object
+				obj.set({
+					scaleX: 1,
+					scaleY: 1,
+					left: clamped.left,
+					top: clamped.top,
+					width: clamped.width,
+					height: clamped.height,
 				});
-				// Reset scale after applying
-				obj.set({ scaleX: 1, scaleY: 1 });
 
-				// Reposition companion label if it exists
-				const companionLabel = canvas
-					.getObjects()
-					.find((o) => (o as FabricZoneLabel).labelForZoneId === obj.zoneId) as
-					| FabricZoneLabel
-					| undefined;
-				if (companionLabel) {
-					companionLabel.set({
-						left: newLeft + 2,
-						top: newTop + 2,
-					});
-					canvas.renderAll();
-				}
+				// Reposition companion label with clamped coordinates
+				repositionLabel(canvas, obj.zoneId, clamped.left, clamped.top);
+				canvas.requestRenderAll();
+			}
+		};
+
+		// Real-time label tracking during move
+		const onObjectMoving = (opt: { target: fabric.FabricObject }) => {
+			const obj = opt.target as FabricZoneRect;
+			if (obj.zoneId !== undefined) {
+				repositionLabel(canvas, obj.zoneId, obj.left ?? 0, obj.top ?? 0);
+				canvas.requestRenderAll();
+			}
+		};
+
+		// Real-time label tracking during resize/scale
+		const onObjectScaling = (opt: { target: fabric.FabricObject }) => {
+			const obj = opt.target as FabricZoneRect;
+			if (obj.zoneId !== undefined) {
+				repositionLabel(canvas, obj.zoneId, obj.left ?? 0, obj.top ?? 0);
+				canvas.requestRenderAll();
 			}
 		};
 
@@ -303,12 +383,16 @@ export function useFabricCanvas(
 		canvas.on("mouse:move", onMouseMove);
 		canvas.on("mouse:up", onMouseUp);
 		canvas.on("object:modified", onObjectModified);
+		canvas.on("object:moving", onObjectMoving);
+		canvas.on("object:scaling", onObjectScaling);
 
 		return () => {
 			canvas.off("mouse:down", onMouseDown);
 			canvas.off("mouse:move", onMouseMove);
 			canvas.off("mouse:up", onMouseUp);
 			canvas.off("object:modified", onObjectModified);
+			canvas.off("object:moving", onObjectMoving);
+			canvas.off("object:scaling", onObjectScaling);
 		};
 	}, [mode, addZone, selectZone, updateZone]);
 
