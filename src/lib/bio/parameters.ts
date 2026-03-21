@@ -140,6 +140,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "%", min: 0, max: 100 },
 		],
 		category: "Formule leucocytaire",
+		preferredUnit: "G/L",
 	},
 	{
 		name: "Polynucléaires éosinophiles",
@@ -155,6 +156,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "%", min: 0, max: 100 },
 		],
 		category: "Formule leucocytaire",
+		preferredUnit: "G/L",
 	},
 	{
 		name: "Polynucléaires basophiles",
@@ -169,6 +171,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "%", min: 0, max: 100 },
 		],
 		category: "Formule leucocytaire",
+		preferredUnit: "G/L",
 	},
 	{
 		name: "Lymphocytes",
@@ -179,6 +182,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "%", min: 0, max: 100 },
 		],
 		category: "Formule leucocytaire",
+		preferredUnit: "G/L",
 	},
 	{
 		name: "Monocytes",
@@ -189,6 +193,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "%", min: 0, max: 100 },
 		],
 		category: "Formule leucocytaire",
+		preferredUnit: "G/L",
 	},
 
 	// ═══════════════════════════════════════════════════════════════════
@@ -215,6 +220,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "mg/dL", min: 0.1, max: 30 },
 		],
 		category: "Biochimie",
+		preferredUnit: "µmol/L",
 	},
 	{
 		name: "Urée",
@@ -272,6 +278,19 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "mg/dL", min: 4, max: 20 },
 		],
 		category: "Ionogramme",
+		preferredUnit: "mmol/L",
+	},
+	{
+		name: "Calcium corrigé",
+		abbreviations: ["Ca corr"],
+		aliases: [
+			"Calcium corrige",
+			"Calcium corrigé Albumine",
+			"Calcium corrige Albumine",
+			"Calcémie corrigée",
+		],
+		units: [{ unit: "mmol/L", min: 1, max: 5 }],
+		category: "Ionogramme",
 	},
 	{
 		name: "Phosphore",
@@ -282,6 +301,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "mg/L", min: 10, max: 150 },
 		],
 		category: "Ionogramme",
+		preferredUnit: "mmol/L",
 	},
 	{
 		name: "Magnésium",
@@ -292,6 +312,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "mg/L", min: 5, max: 70 },
 		],
 		category: "Ionogramme",
+		preferredUnit: "mmol/L",
 	},
 	{
 		name: "Bicarbonates",
@@ -361,6 +382,7 @@ export const BIO_PARAMETERS: BioParameter[] = [
 			{ unit: "mg/L", min: 0, max: 350 },
 		],
 		category: "Bilan hépatique",
+		preferredUnit: "mg/L",
 	},
 	{
 		name: "Bilirubine conjuguée",
@@ -779,6 +801,20 @@ export const BIO_PARAMETERS: BioParameter[] = [
 		],
 		units: [{ unit: "%", min: 0, max: 100 }],
 		category: "Vitamines",
+	},
+
+	// ═══════════════════════════════════════════════════════════════════
+	// HORMONES
+	// ═══════════════════════════════════════════════════════════════════
+	{
+		name: "Testostérone",
+		abbreviations: ["Testo"],
+		aliases: ["Testosterone", "Testostérone totale", "Testosterone totale"],
+		units: [
+			{ unit: "ng/mL", min: 0, max: 15 },
+			{ unit: "nmol/L", min: 0, max: 50 },
+		],
+		category: "Hormones",
 	},
 
 	// ═══════════════════════════════════════════════════════════════════

@@ -1,4 +1,5 @@
 import { parseLine, parseLineMulti } from "@/lib/bio/line-parser";
+import { extractBioResults } from "@/lib/bio/pipeline";
 import { describe, expect, it } from "vitest";
 
 describe("Line parser", () => {
@@ -119,10 +120,43 @@ describe("Line parser", () => {
 		expect(results.length).toBeGreaterThanOrEqual(1);
 		expect(results[0].param.name).toBe("Polynucléaires neutrophiles");
 		expect(results[0].value).toBeCloseTo(4.5);
-		expect(results[0].unit).toBe("g/L");
+		expect(results[0].unit).toBe("G/L");
 		if (results.length >= 2) {
 			expect(results[1].value).toBeCloseTo(45);
 			expect(results[1].unit).toBe("%");
 		}
+	});
+
+	it("prefers G/L over % for PNN when % comes first on the line", () => {
+		const result = parseLine(
+			"Polynucléaires neutrophiles     70.9 %       4.05 giga/l      (1.40-7.70)",
+		);
+		expect(result).not.toBeNull();
+		expect(result?.param.name).toBe("Polynucléaires neutrophiles");
+		expect(result?.value).toBeCloseTo(4.05);
+		expect(result?.unit).toBe("G/L");
+	});
+
+	it("returns both values for PNN with preferred unit first via parseLineMulti", () => {
+		const results = parseLineMulti(
+			"Polynucléaires neutrophiles     70.9 %       4.05 giga/l      (1.40-7.70)",
+		);
+		expect(results).toHaveLength(2);
+		expect(results[0].value).toBeCloseTo(4.05);
+		expect(results[0].unit).toBe("G/L");
+		expect(results[1].value).toBeCloseTo(70.9);
+		expect(results[1].unit).toBe("%");
+	});
+
+	it("prefers G/L over % for PNE when OCR truncates 'giga/L' to 'giga'", () => {
+		// "giga" alone is an OCR artifact — the cleaner normalizes it to "G/L"
+		// before the line parser sees it, so this test goes through the full pipeline.
+		const results = extractBioResults(
+			"Polynucléaires éosinophiles      34%      0.23 giga      (0.02-063)      0.203208012026",
+		);
+		const pne = results.find((r) => r.name === "Polynucléaires éosinophiles");
+		expect(pne).toBeDefined();
+		expect(pne?.value).toBeCloseTo(0.23);
+		expect(pne?.unit).toBe("G/L");
 	});
 });

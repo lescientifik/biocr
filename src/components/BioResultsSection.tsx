@@ -8,7 +8,8 @@ interface BioResultsSectionProps {
 
 /** Format a single bio result as a copy-friendly string. */
 function formatResult(r: BioResult): string {
-	return `${r.name} ${r.value} ${r.unit}`.trim();
+	const val = r.qualifier ? `${r.qualifier}${r.value}` : `${r.value}`;
+	return `${r.name} ${val} ${r.unit}`.trim();
 }
 
 /**

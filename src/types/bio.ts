@@ -18,6 +18,8 @@ export type BioParameter = {
 	units: UnitConfig[];
 	/** Category for grouping. */
 	category: string;
+	/** Preferred unit when multiple values are present (e.g., "G/L" over "%"). */
+	preferredUnit?: string;
 };
 
 /** Result of extracting a single biological parameter from OCR text. */
@@ -30,4 +32,6 @@ export type BioResult = {
 	unit: string;
 	/** True if the value is outside the plausible range (likely OCR error). */
 	flagged: boolean;
+	/** Value qualifier: "<" or ">" when the result is below/above detection threshold. */
+	qualifier?: "<" | ">";
 };

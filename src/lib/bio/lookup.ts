@@ -22,6 +22,7 @@ for (const param of BIO_PARAMETERS) {
 
 	for (const abbr of param.abbreviations) {
 		abbrIndex.set(abbr.toLowerCase(), param);
+		fuzzyEntries.push({ lower: abbr.toLowerCase(), param });
 	}
 
 	for (const alias of param.aliases) {
@@ -63,8 +64,8 @@ export function lookupFuzzy(
 	const exact = lookupExact(term);
 	if (exact) return exact;
 
-	// Don't fuzzy-match very short terms (too ambiguous)
-	if (term.length < 4) return null;
+	// Don't fuzzy-match single characters (too ambiguous)
+	if (term.length < 2) return null;
 
 	const cacheKey = maxDist !== undefined ? `${term}:${maxDist}` : term;
 	const cached = fuzzyCache.get(cacheKey);
