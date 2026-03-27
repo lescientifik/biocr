@@ -1,7 +1,8 @@
+import { extractBioResults } from "@/lib/bio/pipeline.ts";
 import { useClipboard } from "@/hooks/useClipboard.ts";
 import { useZoneStore } from "@/store/zone-store.ts";
 import type { OcrZoneResult } from "@/types/ocr.ts";
-import { Suspense, lazy, useCallback, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
 
 const BioResultsSection = lazy(() =>
 	import("@/components/BioResultsSection.tsx").then((m) => ({
@@ -46,11 +47,23 @@ export function ResultsPanel({ results, isGlobalOcr }: ResultsPanelProps) {
 	// Combine all results into a single text block separated by blank lines
 	const combinedText = sortedResults.map((r) => r.text).join("\n\n");
 
+	// Extract cleaned bio results for copy
+	const bioResults = useMemo(() => extractBioResults(combinedText), [combinedText]);
+	const cleanedCopyText = useMemo(() => {
+		if (bioResults.length === 0) return combinedText;
+		return bioResults
+			.map((r) => {
+				const val = r.qualifier ? `${r.qualifier}${r.value}` : `${r.value}`;
+				return `${r.name} ${val} ${r.unit}`.trim();
+			})
+			.join("\n");
+	}, [bioResults, combinedText]);
+
 	// Compute lowest confidence across all zones
 	const lowestConfidence = Math.min(...sortedResults.map((r) => r.confidence));
 
 	const handleCopy = async () => {
-		await copy(combinedText);
+		await copy(cleanedCopyText);
 		setCopied(true);
 		setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
 	};
