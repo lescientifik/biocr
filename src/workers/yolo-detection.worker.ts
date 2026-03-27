@@ -6,7 +6,13 @@ import {
 import type { DetectionRequest, DetectionResponse } from "@/types/layout.ts";
 import * as ort from "onnxruntime-web";
 
-const MODEL_PATH = "/models/yolo11n-doclaynet.onnx";
+// Derive base URL from worker location (works with Vite's base config)
+const workerUrl = new URL(self.location.href);
+const baseUrl = workerUrl.pathname.substring(
+	0,
+	workerUrl.pathname.indexOf("/assets/") + 1,
+) || "/";
+const MODEL_PATH = `${baseUrl}models/yolo11n-doclaynet.onnx`;
 const ORT_WASM_CDN =
 	"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
 

@@ -1,6 +1,7 @@
 import * as pdfjsLib from "pdfjs-dist";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
+const base = import.meta.env.BASE_URL;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${base}pdfjs/pdf.worker.min.mjs`;
 
 export type RenderedPage = {
 	blobUrl: string;
@@ -39,9 +40,9 @@ export async function loadAndRenderPdf(
 	const loadingTask = pdfjsLib.getDocument({
 		data: source instanceof ArrayBuffer ? source : undefined,
 		url: typeof source === "string" ? source : undefined,
-		cMapUrl: "/pdfjs/cmaps/",
+		cMapUrl: `${base}pdfjs/cmaps/`,
 		cMapPacked: true,
-		standardFontDataUrl: "/pdfjs/standard_fonts/",
+		standardFontDataUrl: `${base}pdfjs/standard_fonts/`,
 	});
 
 	const pdf = await loadingTask.promise;

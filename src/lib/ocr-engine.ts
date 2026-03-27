@@ -2,10 +2,11 @@ import type Tesseract from "tesseract.js";
 import type { PSM } from "tesseract.js";
 
 /** OCR engine configuration for local Tesseract.js paths. */
+const base = import.meta.env.BASE_URL;
 const TESSERACT_CONFIG = {
-	workerPath: "/tesseract/worker.min.js",
-	corePath: "/tesseract/tesseract-core-simd-lstm.wasm.js",
-	langPath: "/tesseract/lang",
+	workerPath: `${base}tesseract/worker.min.js`,
+	corePath: `${base}tesseract/tesseract-core-simd-lstm.wasm.js`,
+	langPath: `${base}tesseract/lang`,
 	cacheMethod: "none" as const,
 };
 
