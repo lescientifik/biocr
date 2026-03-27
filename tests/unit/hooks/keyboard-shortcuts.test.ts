@@ -1,5 +1,6 @@
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts.ts";
 import { useZoneStore } from "@/store/zone-store.ts";
+import type { RenderHookResult } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -11,31 +12,34 @@ function pressKey(key: string): void {
 }
 
 describe("useKeyboardShortcuts", () => {
+	let hook: RenderHookResult<void, unknown>;
+
 	afterEach(() => {
+		hook?.unmount();
 		useZoneStore.getState().reset();
 	});
 
 	it("D key switches to draw mode", () => {
-		renderHook(() => useKeyboardShortcuts());
+		hook = renderHook(() => useKeyboardShortcuts());
 		expect(useZoneStore.getState().mode).toBe("pan");
 
 		pressKey("d");
 		expect(useZoneStore.getState().mode).toBe("draw");
 	});
 
-	it("V key switches to pan mode", () => {
-		renderHook(() => useKeyboardShortcuts());
+	it("D key toggles back to pan mode when already in draw mode", () => {
+		hook = renderHook(() => useKeyboardShortcuts());
 
 		// Start in draw mode
 		useZoneStore.getState().setMode("draw");
 		expect(useZoneStore.getState().mode).toBe("draw");
 
-		pressKey("v");
+		pressKey("d");
 		expect(useZoneStore.getState().mode).toBe("pan");
 	});
 
 	it("Delete key removes the selected zone", () => {
-		renderHook(() => useKeyboardShortcuts());
+		hook = renderHook(() => useKeyboardShortcuts());
 
 		// Add a zone and select it
 		const zone = useZoneStore.getState().addZone({
@@ -53,7 +57,7 @@ describe("useKeyboardShortcuts", () => {
 	});
 
 	it("Escape key deselects the active zone", () => {
-		renderHook(() => useKeyboardShortcuts());
+		hook = renderHook(() => useKeyboardShortcuts());
 
 		const zone = useZoneStore.getState().addZone({
 			left: 0,
@@ -69,7 +73,7 @@ describe("useKeyboardShortcuts", () => {
 	});
 
 	it("Backspace key removes the selected zone", () => {
-		renderHook(() => useKeyboardShortcuts());
+		hook = renderHook(() => useKeyboardShortcuts());
 
 		const zone = useZoneStore.getState().addZone({
 			left: 0,
@@ -86,7 +90,7 @@ describe("useKeyboardShortcuts", () => {
 	});
 
 	it("shortcuts are ignored when an input element is focused", () => {
-		renderHook(() => useKeyboardShortcuts());
+		hook = renderHook(() => useKeyboardShortcuts());
 
 		const input = document.createElement("input");
 		document.body.appendChild(input);

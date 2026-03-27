@@ -354,4 +354,39 @@ Créatinine 78 µmol/L`;
 		expect(mono?.value).toBeCloseTo(0.4);
 		expect(mono?.unit).toBe("G/L");
 	});
+
+	it("extracts PNB in G/L from OCR-mangled unit 'gga'", () => {
+		const results = extractBioResults(
+			"Polynucléaires basophiles       09%       0.05 gga       (0.00-0.11)       0.040901/2026",
+		);
+		const pnb = results.find(
+			(r) => r.name === "Polynucléaires basophiles",
+		);
+		expect(pnb).toBeDefined();
+		expect(pnb?.value).toBeCloseTo(0.05);
+		expect(pnb?.unit).toBe("G/L");
+	});
+
+	it("extracts PNB in G/L from dot-leaders line with 'Giga.' OCR unit", () => {
+		const results = extractBioResults(
+			"Polynucléaires basophiles................0,6 %             0,05 Giga.                <0.2",
+		);
+		const pnb = results.find(
+			(r) => r.name === "Polynucléaires basophiles",
+		);
+		expect(pnb).toBeDefined();
+		expect(pnb?.value).toBeCloseTo(0.05);
+		expect(pnb?.unit).toBe("G/L");
+	});
+
+	it("ignores formula explanation lines (no false positive for Albumine)", () => {
+		const results = extractBioResults(
+			[
+				"Ca corrigé = Ca mesuré(mmol/L) + 1- Albumine (g/L) / 40),",
+				"applicable uniquement avec albuminémie inférieure ou égale à 40 g/L.",
+			].join("\n"),
+		);
+		const alb = results.find((r) => r.name === "Albumine");
+		expect(alb).toBeUndefined();
+	});
 });

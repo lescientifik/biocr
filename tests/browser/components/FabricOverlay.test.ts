@@ -199,13 +199,13 @@ describe("FabricOverlay — canvas interactions", () => {
 		expect(fabricCanvas.getActiveObject()).toBeUndefined();
 	});
 
-	it("canvas cursor changes to crosshair in draw mode and grab in pan mode", () => {
+	it("canvas cursor changes to crosshair in draw mode and default in pan mode", () => {
 		setup();
 
 		fabricCanvas.defaultCursor = "crosshair";
 		expect(fabricCanvas.defaultCursor).toBe("crosshair");
 
-		fabricCanvas.defaultCursor = "grab";
-		expect(fabricCanvas.defaultCursor).toBe("grab");
+		fabricCanvas.defaultCursor = "default";
+		expect(fabricCanvas.defaultCursor).toBe("default");
 	});
 });

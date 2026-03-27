@@ -1,5 +1,4 @@
 import { useFabricCanvas } from "@/hooks/useFabricCanvas.ts";
-import { useZoneStore } from "@/store/zone-store.ts";
 import { useEffect, useRef } from "react";
 
 interface FabricOverlayProps {
@@ -10,7 +9,6 @@ interface FabricOverlayProps {
 export function FabricOverlay({ width, height }: FabricOverlayProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const { resize } = useFabricCanvas(canvasRef);
-	const mode = useZoneStore((s) => s.mode);
 
 	// Resize canvas to match document container
 	useEffect(() => {
@@ -25,7 +23,7 @@ export function FabricOverlay({ width, height }: FabricOverlayProps) {
 			id="fabric-overlay"
 			role="application"
 			aria-label="Zone de sélection OCR"
-			className={`absolute left-0 top-0 ${mode === "draw" ? "ring-2 ring-blue-400" : ""}`}
+			className="absolute left-0 top-0"
 		/>
 	);
 }

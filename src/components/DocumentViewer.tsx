@@ -12,6 +12,8 @@ interface DocumentViewerProps {
 	fileType: FileType;
 	onLoadError?: (message: string) => void;
 	onPdfProxyReady?: (proxy: unknown | null) => void;
+	/** Per-page deskewed image URLs (e.g. from classic or YOLO pipeline deskew). */
+	deskewedPageUrls?: Map<number, string>;
 	children?: React.ReactNode;
 }
 
@@ -37,6 +39,7 @@ export function DocumentViewer({
 	fileType,
 	onLoadError,
 	onPdfProxyReady,
+	deskewedPageUrls,
 	children,
 }: DocumentViewerProps) {
 	const workspaceRef = useRef<HTMLDivElement>(null);
@@ -201,7 +204,7 @@ export function DocumentViewer({
 									)}
 									<img
 										id={`page-${i}`}
-										src={page.blobUrl}
+										src={deskewedPageUrls?.get(i) ?? page.blobUrl}
 										alt={`Page ${i + 1}`}
 										style={{
 											width: `${page.width}px`,
@@ -211,7 +214,11 @@ export function DocumentViewer({
 									/>
 								</div>
 							))
-						: imageUrl && <ImagePage url={imageUrl} />}
+						: imageUrl && (
+								<ImagePage
+									url={deskewedPageUrls?.get(0) ?? imageUrl}
+								/>
+							)}
 				</div>
 				{children}
 			</div>

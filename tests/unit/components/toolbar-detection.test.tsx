@@ -18,6 +18,7 @@ function createProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
 		mode: "pan" as InteractionMode,
 		isOcrRunning: false,
 		previewPreprocessing: false,
+		skipPreprocessing: false,
 		language: "fra" as LanguageCode,
 		isOnline: true,
 		onFileClose: vi.fn(),
@@ -25,6 +26,7 @@ function createProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
 		onModeChange: vi.fn(),
 		onClearZones: vi.fn(),
 		onPreviewToggle: vi.fn(),
+		onSkipPreprocessingToggle: vi.fn(),
 		onLanguageChange: vi.fn(),
 		onOcrStart: vi.fn(),
 		onResetZoom: vi.fn(),
@@ -98,7 +100,8 @@ describe("Toolbar — détection de layout", () => {
 		);
 		await userEvent.click(screen.getByLabelText("Filtres de détection"));
 		const checkboxes = screen.getAllByRole("checkbox");
-		expect(checkboxes).toHaveLength(6);
+		// 6 filter checkboxes + 1 "Raw" checkbox in toolbar = 7
+		expect(checkboxes).toHaveLength(7);
 	});
 
 	it("Tableau et Texte cochés par défaut", async () => {
@@ -111,13 +114,14 @@ describe("Toolbar — détection de layout", () => {
 		);
 		await userEvent.click(screen.getByLabelText("Filtres de détection"));
 		const checkboxes = screen.getAllByRole("checkbox");
-		// Tableau = index 0, Texte = index 1
-		expect(checkboxes[0]).toBeChecked();
+		// index 0 = Raw toggle, filter checkboxes start at index 1
+		// Tableau = index 1, Texte = index 2
 		expect(checkboxes[1]).toBeChecked();
+		expect(checkboxes[2]).toBeChecked();
 		// En-tête, Pied de page, Figure unchecked
-		expect(checkboxes[2]).not.toBeChecked();
 		expect(checkboxes[3]).not.toBeChecked();
 		expect(checkboxes[4]).not.toBeChecked();
+		expect(checkboxes[5]).not.toBeChecked();
 	});
 
 	it("toggle d'une checkbox appelle onToggleType", async () => {
@@ -131,9 +135,9 @@ describe("Toolbar — détection de layout", () => {
 			/>,
 		);
 		await userEvent.click(screen.getByLabelText("Filtres de détection"));
-		// Click on "En-tête" (3rd checkbox)
+		// Click on "En-tête" (4th checkbox, index 3 — index 0 is Raw toggle)
 		const checkboxes = screen.getAllByRole("checkbox");
-		await userEvent.click(checkboxes[2]);
+		await userEvent.click(checkboxes[3]);
 		expect(onToggleType).toHaveBeenCalledWith("header");
 	});
 

@@ -30,7 +30,7 @@ describe("ResultsPanel", () => {
 		expect(container.querySelector('[data-testid="results-panel"]')).toBeNull();
 	});
 
-	it("shows one tab per zone with OCR text", () => {
+	it("shows all zone texts combined in a single view", () => {
 		const results: OcrZoneResult[] = [
 			{ zoneId: 1, text: "Texte zone 1", confidence: 85 },
 			{ zoneId: 3, text: "Texte zone 3", confidence: 92 },
@@ -39,36 +39,10 @@ describe("ResultsPanel", () => {
 			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
 		);
 
-		expect(screen.getByText("Zone 1")).toBeInTheDocument();
-		expect(screen.getByText("Zone 3")).toBeInTheDocument();
-		expect(screen.queryByText("Zone 2")).not.toBeInTheDocument();
-	});
-
-	it('shows a "Document" tab for global OCR', () => {
-		const results: OcrZoneResult[] = [
-			{ zoneId: 0, text: "Full document text", confidence: 90 },
-		];
-		render(
-			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={true} />,
-		);
-
-		expect(screen.getByText("Document")).toBeInTheDocument();
-		expect(screen.queryByText("Zone")).not.toBeInTheDocument();
-	});
-
-	it("displays stable zone numbers (Zone 1, Zone 3 when Zone 2 was deleted)", () => {
-		const results: OcrZoneResult[] = [
-			{ zoneId: 1, text: "A", confidence: 80 },
-			{ zoneId: 3, text: "B", confidence: 80 },
-			{ zoneId: 5, text: "C", confidence: 80 },
-		];
-		render(
-			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
-		);
-
-		expect(screen.getByText("Zone 1")).toBeInTheDocument();
-		expect(screen.getByText("Zone 3")).toBeInTheDocument();
-		expect(screen.getByText("Zone 5")).toBeInTheDocument();
+		// Both texts visible at once, no tabs
+		expect(screen.getByText(/Texte zone 1/)).toBeInTheDocument();
+		expect(screen.getByText(/Texte zone 3/)).toBeInTheDocument();
+		expect(screen.queryByRole("tab")).not.toBeInTheDocument();
 	});
 
 	it("displays OCR text in a selectable <pre> with monospace font", () => {
@@ -84,9 +58,10 @@ describe("ResultsPanel", () => {
 		expect(pre.className).toContain("font-mono");
 	});
 
-	it("shows confidence badge when confidence < 40%", () => {
+	it("shows confidence badge when any zone has confidence < 40%", () => {
 		const results: OcrZoneResult[] = [
 			{ zoneId: 1, text: "Low confidence", confidence: 30 },
+			{ zoneId: 2, text: "High confidence", confidence: 90 },
 		];
 		render(
 			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
@@ -95,7 +70,7 @@ describe("ResultsPanel", () => {
 		expect(screen.getByText(/Fiabilité faible/)).toBeInTheDocument();
 	});
 
-	it("does not show confidence badge when confidence >= 40%", () => {
+	it("does not show confidence badge when all zones have confidence >= 40%", () => {
 		const results: OcrZoneResult[] = [
 			{ zoneId: 1, text: "Good confidence", confidence: 75 },
 		];
@@ -106,9 +81,10 @@ describe("ResultsPanel", () => {
 		expect(screen.queryByText(/Fiabilité faible/)).not.toBeInTheDocument();
 	});
 
-	it('"Copier" button calls copy with zone text', async () => {
+	it('"Copier" button copies all combined text', async () => {
 		const results: OcrZoneResult[] = [
-			{ zoneId: 1, text: "Copy me", confidence: 85 },
+			{ zoneId: 3, text: "Texte 3", confidence: 80 },
+			{ zoneId: 1, text: "Texte 1", confidence: 80 },
 		];
 		render(
 			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
@@ -119,7 +95,8 @@ describe("ResultsPanel", () => {
 			fireEvent.click(copyButton);
 		});
 
-		expect(mockCopy).toHaveBeenCalledWith("Copy me");
+		// Sorted by zoneId, joined with blank line
+		expect(mockCopy).toHaveBeenCalledWith("Texte 1\n\nTexte 3");
 	});
 
 	it('"Copier" button shows "Copié !" for 2 seconds then reverts', async () => {
@@ -145,38 +122,20 @@ describe("ResultsPanel", () => {
 		expect(screen.getByRole("button", { name: "Copier" })).toBeInTheDocument();
 	});
 
-	it('"Tout copier" concatenates with zone separators in ascending ID order', async () => {
+	it("copies single result without extra blank lines", async () => {
 		const results: OcrZoneResult[] = [
-			{ zoneId: 3, text: "Texte 3", confidence: 80 },
-			{ zoneId: 1, text: "Texte 1", confidence: 80 },
+			{ zoneId: 5, text: "Seule zone", confidence: 85 },
 		];
 		render(
 			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
 		);
 
-		const copyAllButton = screen.getByRole("button", { name: "Tout copier" });
+		const copyButton = screen.getByRole("button", { name: "Copier" });
 		await act(async () => {
-			fireEvent.click(copyAllButton);
+			fireEvent.click(copyButton);
 		});
 
-		const expected = "--- Zone 1 ---\nTexte 1\n\n--- Zone 3 ---\nTexte 3";
-		expect(mockCopy).toHaveBeenCalledWith(expected);
-	});
-
-	it('"Tout copier" with single Document tab copies without separator', async () => {
-		const results: OcrZoneResult[] = [
-			{ zoneId: 0, text: "Full document", confidence: 90 },
-		];
-		render(
-			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={true} />,
-		);
-
-		const copyAllButton = screen.getByRole("button", { name: "Tout copier" });
-		await act(async () => {
-			fireEvent.click(copyAllButton);
-		});
-
-		expect(mockCopy).toHaveBeenCalledWith("Full document");
+		expect(mockCopy).toHaveBeenCalledWith("Seule zone");
 	});
 
 	it("shows help message when result text is empty", () => {
@@ -218,54 +177,21 @@ describe("ResultsPanel", () => {
 		expect(panel).not.toBeNull();
 	});
 
-	it('"Tout copier" with multiple global OCR results uses "Page" separators', async () => {
+	it("works the same way for global OCR results", async () => {
 		const results: OcrZoneResult[] = [
-			{ zoneId: 2, text: "Page deux", confidence: 80 },
-			{ zoneId: 1, text: "Page une", confidence: 80 },
+			{ zoneId: 0, text: "Full document text", confidence: 90 },
 		];
 		render(
 			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={true} />,
 		);
 
-		const copyAllButton = screen.getByRole("button", { name: "Tout copier" });
+		expect(screen.getByText("Full document text")).toBeInTheDocument();
+
+		const copyButton = screen.getByRole("button", { name: "Copier" });
 		await act(async () => {
-			fireEvent.click(copyAllButton);
+			fireEvent.click(copyButton);
 		});
 
-		const expected = "--- Page 1 ---\nPage une\n\n--- Page 2 ---\nPage deux";
-		expect(mockCopy).toHaveBeenCalledWith(expected);
-	});
-
-	it('"Tout copier" with single zone result copies without separator', async () => {
-		const results: OcrZoneResult[] = [
-			{ zoneId: 5, text: "Seule zone", confidence: 85 },
-		];
-		render(
-			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
-		);
-
-		const copyAllButton = screen.getByRole("button", { name: "Tout copier" });
-		await act(async () => {
-			fireEvent.click(copyAllButton);
-		});
-
-		expect(mockCopy).toHaveBeenCalledWith("Seule zone");
-	});
-
-	it("switches between zone tabs to show different text", () => {
-		const results: OcrZoneResult[] = [
-			{ zoneId: 1, text: "Texte zone 1", confidence: 85 },
-			{ zoneId: 3, text: "Texte zone 3", confidence: 92 },
-		];
-		render(
-			<ResultsPanel {...defaultProps} results={results} isGlobalOcr={false} />,
-		);
-
-		// First tab is active by default
-		expect(screen.getByText("Texte zone 1")).toBeInTheDocument();
-
-		// Click second tab
-		fireEvent.click(screen.getByText("Zone 3"));
-		expect(screen.getByText("Texte zone 3")).toBeInTheDocument();
+		expect(mockCopy).toHaveBeenCalledWith("Full document text");
 	});
 });

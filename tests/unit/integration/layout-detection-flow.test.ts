@@ -92,14 +92,14 @@ describe("Layout detection integration flow", () => {
 				isCacheValid(useLayoutStore.getState().detectionCache, FILE_ID),
 			).toBe(true);
 
-			// 2. Filter: only table and text enabled (default)
+			// 2. Filter: only table enabled (default)
 			const enabledTypes = useLayoutStore.getState().enabledTypes;
-			expect(enabledTypes).toEqual(["table", "text"]);
+			expect(enabledTypes).toEqual(["table"]);
 			const filtered = getFilteredRegions(regionsByPage, enabledTypes, []);
-			// page0: table(0:0), text(0:1) — header excluded
+			// page0: table(0:0) — text, header excluded
 			// page1: table(1:0) — footer excluded
-			expect(filtered).toHaveLength(3);
-			expect(filtered.map((f) => f.regionKey)).toEqual(["0:0", "0:1", "1:0"]);
+			expect(filtered).toHaveLength(2);
+			expect(filtered.map((f) => f.regionKey)).toEqual(["0:0", "1:0"]);
 
 			// 3. Convert to auto zone defs and add to zone store
 			const zoneDefs = regionsToAutoZones(
@@ -107,12 +107,12 @@ describe("Layout detection integration flow", () => {
 				pageLayouts,
 				sourceImageSizes,
 			);
-			expect(zoneDefs).toHaveLength(3);
+			expect(zoneDefs).toHaveLength(2);
 			expect(zoneDefs.every((z) => z.source === "auto")).toBe(true);
 
 			useZoneStore.getState().addAutoZones(zoneDefs);
 			const zones = useZoneStore.getState().zones;
-			expect(zones).toHaveLength(3);
+			expect(zones).toHaveLength(2);
 			expect(zones[0].source).toBe("auto");
 			expect(zones[0].regionKey).toBe("0:0");
 			expect(zones[0].label).toBe("table");
@@ -121,7 +121,7 @@ describe("Layout detection integration flow", () => {
 			useZoneStore
 				.getState()
 				.addZone({ left: 0, top: 0, width: 50, height: 50 });
-			expect(useZoneStore.getState().zones).toHaveLength(4);
+			expect(useZoneStore.getState().zones).toHaveLength(3);
 
 			useZoneStore.getState().clearAutoZones();
 			const remaining = useZoneStore.getState().zones;
@@ -132,6 +132,8 @@ describe("Layout detection integration flow", () => {
 		it("toggle type OFF removes auto zones of that type, toggle ON re-adds from cache", () => {
 			// Setup: cache + auto zones with table+text enabled
 			useLayoutStore.getState().setDetectionCache(cache);
+			// Enable "text" in addition to default "table"
+			useLayoutStore.getState().toggleType("text");
 			const filtered = getFilteredRegions(
 				regionsByPage,
 				useLayoutStore.getState().enabledTypes,

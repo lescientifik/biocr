@@ -20,6 +20,8 @@ interface ToolbarProps {
 	isOcrRunning: boolean;
 	/** Whether preprocessing preview is active. */
 	previewPreprocessing: boolean;
+	/** Whether preprocessing is skipped (raw OCR). */
+	skipPreprocessing: boolean;
 	/** Current OCR language code. */
 	language: LanguageCode;
 	/** Whether the app is online (for language downloads). */
@@ -47,14 +49,17 @@ interface ToolbarProps {
 	onModeChange: (mode: InteractionMode) => void;
 	onClearZones: () => void;
 	onPreviewToggle: () => void;
+	onSkipPreprocessingToggle: () => void;
 	onLanguageChange: (lang: LanguageCode) => void;
 	onOcrStart: () => void;
 	onResetZoom: () => void;
 }
 
 const KEYBOARD_SHORTCUTS = [
-	{ key: "D", action: "Mode Draw" },
-	{ key: "V", action: "Mode Pan" },
+	{ key: "D", action: "Toggle Draw / Pan" },
+	{ key: "Molette", action: "Scroll vertical" },
+	{ key: "Clic droit + drag", action: "Zoom" },
+	{ key: "Clic milieu + drag", action: "Pan libre" },
 	{ key: "Suppr", action: "Supprimer zone" },
 	{ key: "Ctrl +", action: "Zoom in" },
 	{ key: "Ctrl -", action: "Zoom out" },
@@ -79,6 +84,7 @@ export function Toolbar({
 	mode,
 	isOcrRunning,
 	previewPreprocessing,
+	skipPreprocessing,
 	language,
 	isOnline,
 	onDetectZones = () => {},
@@ -94,6 +100,7 @@ export function Toolbar({
 	onModeChange,
 	onClearZones,
 	onPreviewToggle,
+	onSkipPreprocessingToggle,
 	onLanguageChange,
 	onOcrStart,
 	onResetZoom,
@@ -178,6 +185,15 @@ export function Toolbar({
 				👁
 			</Button>
 
+			<label className="flex items-center gap-1 text-xs text-muted-foreground" title="Désactiver le prétraitement image (OCR brut)">
+				<input
+					type="checkbox"
+					checked={skipPreprocessing}
+					onChange={onSkipPreprocessingToggle}
+				/>
+				Raw
+			</label>
+
 			<LanguageSelector
 				value={language}
 				isOnline={isOnline}
@@ -203,7 +219,10 @@ export function Toolbar({
 					size="icon-xs"
 					aria-label="Filtres de détection"
 					disabled={isDetecting}
-					onClick={() => !isDetecting && setFilterOpen((o) => !o)}
+					onClick={() => {
+						if (isDetecting) return;
+						setFilterOpen((o) => !o);
+					}}
 				>
 					⚙
 				</Button>

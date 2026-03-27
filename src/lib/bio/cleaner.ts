@@ -51,6 +51,8 @@ function cleanLine(line: string): string {
 	if (/^[-_=.]{3,}$/.test(result)) return "";
 	// Remove sample/method info lines (no bio data)
 	if (/^(Sang|Sérum|Serum|Plasma|Urine)\b/i.test(result)) return "";
+	// Remove formula/explanation lines (narrative text starting with common words)
+	if (/^(applicable|uniquement|la calcémie|calculé)/i.test(result)) return "";
 	// Remove stray underscores surrounded by spaces
 	result = result.replace(/\s_\s/g, " ");
 	// Remove stray # characters (OCR noise from table formatting)
@@ -64,6 +66,8 @@ function cleanLine(line: string): string {
 	result = result.replace(/\b([A-Z]{1,3})\s+([A-Z])\.\s/g, "$1$2 ");
 	// Fix truncated/mangled OCR units
 	result = result.replace(/\bgiga(?!\/)\b/gi, "G/L");
+	// OCR mangles G/L as "gga" or "ggal" (visual similarity)
+	result = result.replace(/\bgga[l]?\b/gi, "G/L");
 	result = result.replace(/\bU[AN]\b/gi, "UI/L");
 	// DFG unit: OCR mangles mL/min/1.73m² in many ways
 	// Handles: mi/mn/1,73m2, _mlimn/1,73m2, miymn/1.73m?, ml/min/1.73m² etc.
@@ -83,8 +87,8 @@ function cleanLine(line: string): string {
 	// OCR mangles g/100mL (= g/dL) as 9/100mL, g/100ml etc.
 	result = result.replace(/\b[g9]\/100\s*m[lL]\b/g, "g/dL");
 	// OCR drops decimal point: 04 → 0.4 (leading zero followed by non-zero digit)
-	// Only when not part of a larger number (not preceded by digit or dot)
-	result = result.replace(/(?<![.\d])0([1-9])(?!\d)/g, "0.$1");
+	// Only when not part of a larger number (not preceded by digit, dot, or comma)
+	result = result.replace(/(?<![.,\d])0([1-9])(?!\d)/g, "0.$1");
 	// Collapse multiple spaces into one
 	result = result.replace(/\s{2,}/g, " ");
 

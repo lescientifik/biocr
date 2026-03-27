@@ -14,6 +14,8 @@ export type PreprocessFn = (image: ImageBuffer) => Promise<ImageBuffer>;
 export type ZoneInput = {
 	id: number;
 	image: ImageBuffer;
+	/** Vertical position in document space — used for page-order sorting. */
+	top?: number;
 };
 
 export type ZoneProvider = {
@@ -56,7 +58,12 @@ export async function processZones(
 
 	const isArray = Array.isArray(zones);
 	const count = isArray ? zones.length : zones.count;
-	const sorted = isArray ? [...zones].sort((a, b) => a.id - b.id) : null;
+	// Sort by vertical position (page order) when available, fall back to id
+	const sorted = isArray
+		? [...zones].sort(
+				(a, b) => (a.top ?? 0) - (b.top ?? 0) || a.id - b.id,
+			)
+		: null;
 
 	for (let i = 0; i < count; i++) {
 		if (signal?.aborted) break;

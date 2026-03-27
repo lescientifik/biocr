@@ -23,7 +23,7 @@ type LayoutStore = {
 
 const initialState = {
 	detection: { status: "idle" } as DetectionState,
-	enabledTypes: ["table", "text"] as LayoutRegionType[],
+	enabledTypes: ["table"] as LayoutRegionType[],
 	detectionCache: null as DetectionCacheData | null,
 	deletedRegionKeys: [] as string[],
 };

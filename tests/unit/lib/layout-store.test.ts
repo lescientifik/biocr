@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it } from "vitest";
 describe("Layout store", () => {
 	afterEach(() => useLayoutStore.getState().reset());
 
-	it("initial state: detection.status === 'idle', enabledTypes === ['table', 'text']", () => {
+	it("initial state: detection.status === 'idle', enabledTypes === ['table']", () => {
 		const state = useLayoutStore.getState();
 		expect(state.detection).toEqual({ status: "idle" });
-		expect(state.enabledTypes).toEqual(["table", "text"]);
+		expect(state.enabledTypes).toEqual(["table"]);
 	});
 
 	it("setDetectionState updates the status", () => {

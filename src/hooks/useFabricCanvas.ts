@@ -55,19 +55,22 @@ export function useFabricCanvas(
 		const canvas = new fabric.Canvas(el, {
 			selection: false,
 			renderOnAddRemove: true,
+			uniformScaling: false, // Allow free (non-proportional) resize from corners
+			perPixelTargetFind: false, // Hit-test on bounding box, not visible pixels
 		});
 
 		// Set Fabric viewportTransform to identity (no internal zoom)
 		canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
 
 		// Fabric wraps the canvas in a container div — position it absolutely
-		// so it overlays the pages-container
+		// so it overlays the pages-container.
+		// pointer-events is always "auto" so zones remain interactive in all modes.
 		const wrapperEl = canvas.getElement().parentElement;
 		if (wrapperEl) {
 			wrapperEl.style.position = "absolute";
 			wrapperEl.style.left = "0";
 			wrapperEl.style.top = "0";
-			wrapperEl.style.pointerEvents = "none"; // default to pan mode
+			wrapperEl.style.pointerEvents = "auto";
 		}
 
 		fabricRef.current = canvas;
@@ -129,10 +132,22 @@ export function useFabricCanvas(
 					strokeWidth: ZONE_STROKE_WIDTH,
 					strokeUniform: true,
 					strokeDashArray: isAuto ? AUTO_DASH : undefined,
+					// Always interactive: selectable, movable, resizable
+					selectable: true,
+					evented: true,
+					hasControls: true,
+					hasBorders: true,
+					lockRotation: true,
+					cornerColor: isAuto ? AUTO_STROKE : MANUAL_STROKE,
+					cornerStyle: "circle",
+					cornerSize: 8,
+					transparentCorners: false,
 				}) as FabricZoneRect;
 				rect.zoneId = zone.id;
 				rect.zoneSource = zone.source ?? "manual";
 				rect.zoneRegionKey = zone.regionKey;
+				// Disable rotation control, keep corners + edges
+				rect.setControlVisible("mtr", false);
 				canvas.add(rect);
 
 				// Create companion label for auto zones
@@ -156,35 +171,27 @@ export function useFabricCanvas(
 		canvas.renderAll();
 	}, [zones]);
 
-	// Handle mode changes — also toggle pointer-events on the Fabric wrapper
+	// Handle mode changes — update cursor styles.
+	// Zones remain selectable/evented in ALL modes so they can always be
+	// moved and resized. The draw-vs-pan distinction is handled in the
+	// mouse:down handler (only draw mode starts new rectangles on empty area).
 	useEffect(() => {
 		const canvas = fabricRef.current;
 		if (!canvas) return;
 
-		// Fabric wraps the original canvas in a container div with upper/lower canvas.
-		// We need to toggle pointer-events on the wrapper, not just the original element.
-		const wrapperEl = canvas.getElement().parentElement;
-		if (wrapperEl) {
-			wrapperEl.style.pointerEvents = mode === "draw" ? "auto" : "none";
-		}
-
 		if (mode === "draw") {
 			canvas.defaultCursor = "crosshair";
-			canvas.hoverCursor = "crosshair";
-			for (const obj of canvas.getObjects()) {
-				// Labels should never be selectable
-				if ((obj as FabricZoneLabel).labelForZoneId !== undefined) continue;
-				obj.selectable = true;
-				obj.evented = true;
-			}
+			canvas.hoverCursor = "move";
 		} else {
-			canvas.defaultCursor = "grab";
-			canvas.hoverCursor = "grab";
-			canvas.discardActiveObject();
-			for (const obj of canvas.getObjects()) {
-				obj.selectable = false;
-				obj.evented = false;
-			}
+			canvas.defaultCursor = "default";
+			canvas.hoverCursor = "move";
+		}
+
+		// Ensure all zone rects are interactive (labels stay inert)
+		for (const obj of canvas.getObjects()) {
+			if ((obj as FabricZoneLabel).labelForZoneId !== undefined) continue;
+			obj.selectable = true;
+			obj.evented = true;
 		}
 		canvas.renderAll();
 	}, [mode]);
@@ -195,9 +202,7 @@ export function useFabricCanvas(
 		if (!canvas) return;
 
 		const onMouseDown = (opt: fabric.TPointerEventInfo) => {
-			if (mode !== "draw") return;
-
-			// If clicking on an existing object, select it instead of drawing
+			// Clicking on an existing zone selects it in ANY mode
 			if (opt.target) {
 				const zoneId = (opt.target as FabricZoneRect).zoneId;
 				if (zoneId !== undefined) {
@@ -205,6 +210,9 @@ export function useFabricCanvas(
 				}
 				return;
 			}
+
+			// Only draw mode starts new rectangles on empty canvas area
+			if (mode !== "draw") return;
 
 			isDrawing.current = true;
 			const pointer = canvas.getScenePoint(opt.e);
@@ -220,7 +228,16 @@ export function useFabricCanvas(
 				strokeWidth: ZONE_STROKE_WIDTH,
 				strokeUniform: true,
 				selectable: true,
+				evented: true,
+				hasControls: true,
+				hasBorders: true,
+				lockRotation: true,
+				cornerColor: MANUAL_STROKE,
+				cornerStyle: "circle",
+				cornerSize: 8,
+				transparentCorners: false,
 			});
+			rect.setControlVisible("mtr", false);
 			activeRect.current = rect;
 			canvas.add(rect);
 		};
@@ -266,22 +283,38 @@ export function useFabricCanvas(
 			activeRect.current = null;
 		};
 
+		// Normalize scale → real width/height on every scaling tick so the
+		// fill/stroke track the visual bounds in real time (not just on mouseup).
+		const normalizeScale = (obj: FabricZoneRect) => {
+			const sx = obj.scaleX ?? 1;
+			const sy = obj.scaleY ?? 1;
+			if (sx === 1 && sy === 1) return;
+			obj.set({
+				width: (obj.width ?? 0) * sx,
+				height: (obj.height ?? 0) * sy,
+				scaleX: 1,
+				scaleY: 1,
+			});
+			obj.setCoords();
+		};
+
+		const onObjectScaling = (opt: { target: fabric.FabricObject }) => {
+			normalizeScale(opt.target as FabricZoneRect);
+		};
+
 		const onObjectModified = (opt: { target: fabric.FabricObject }) => {
 			const obj = opt.target as FabricZoneRect;
 			if (obj.zoneId !== undefined) {
+				normalizeScale(obj);
 				const newLeft = obj.left ?? 0;
 				const newTop = obj.top ?? 0;
-				const newWidth = (obj.width ?? 0) * (obj.scaleX ?? 1);
-				const newHeight = (obj.height ?? 0) * (obj.scaleY ?? 1);
 
 				updateZone(obj.zoneId, {
 					left: newLeft,
 					top: newTop,
-					width: newWidth,
-					height: newHeight,
+					width: obj.width ?? 0,
+					height: obj.height ?? 0,
 				});
-				// Reset scale after applying
-				obj.set({ scaleX: 1, scaleY: 1 });
 
 				// Reposition companion label if it exists
 				const companionLabel = canvas
@@ -302,12 +335,14 @@ export function useFabricCanvas(
 		canvas.on("mouse:down", onMouseDown);
 		canvas.on("mouse:move", onMouseMove);
 		canvas.on("mouse:up", onMouseUp);
+		canvas.on("object:scaling", onObjectScaling);
 		canvas.on("object:modified", onObjectModified);
 
 		return () => {
 			canvas.off("mouse:down", onMouseDown);
 			canvas.off("mouse:move", onMouseMove);
 			canvas.off("mouse:up", onMouseUp);
+			canvas.off("object:scaling", onObjectScaling);
 			canvas.off("object:modified", onObjectModified);
 		};
 	}, [mode, addZone, selectZone, updateZone]);

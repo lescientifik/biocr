@@ -28,6 +28,7 @@ type AppStore = {
 	// Settings
 	language: LanguageCode;
 	previewPreprocessing: boolean;
+	skipPreprocessing: boolean;
 
 	// Actions
 	setFile: (file: File, type: FileType) => void;
@@ -36,6 +37,7 @@ type AppStore = {
 	setOcrState: (ocr: OcrState) => void;
 	setLanguage: (lang: LanguageCode) => void;
 	togglePreprocessingPreview: () => void;
+	toggleSkipPreprocessing: () => void;
 	reset: () => void;
 };
 
@@ -46,6 +48,7 @@ const initialState = {
 	ocr: { status: "idle" } as OcrState,
 	language: "fra" as LanguageCode,
 	previewPreprocessing: false,
+	skipPreprocessing: false,
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -60,6 +63,7 @@ export const useAppStore = create<AppStore>((set) => ({
 			pages: [],
 			ocr: { status: "idle" },
 			previewPreprocessing: false,
+		skipPreprocessing: false,
 		}),
 
 	setPages: (pages) => set({ pages }),
@@ -71,6 +75,11 @@ export const useAppStore = create<AppStore>((set) => ({
 	togglePreprocessingPreview: () =>
 		set((state) => ({
 			previewPreprocessing: !state.previewPreprocessing,
+		})),
+
+	toggleSkipPreprocessing: () =>
+		set((state) => ({
+			skipPreprocessing: !state.skipPreprocessing,
 		})),
 
 	reset: () => set(initialState),

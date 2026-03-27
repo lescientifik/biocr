@@ -15,6 +15,7 @@ function createProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
 		mode: "pan" as InteractionMode,
 		isOcrRunning: false,
 		previewPreprocessing: false,
+		skipPreprocessing: false,
 		language: "fra" as LanguageCode,
 		isOnline: true,
 		onFileClose: vi.fn(),
@@ -22,6 +23,7 @@ function createProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
 		onModeChange: vi.fn(),
 		onClearZones: vi.fn(),
 		onPreviewToggle: vi.fn(),
+		onSkipPreprocessingToggle: vi.fn(),
 		onLanguageChange: vi.fn(),
 		onOcrStart: vi.fn(),
 		onResetZoom: vi.fn(),
@@ -190,7 +192,7 @@ describe("Toolbar", () => {
 		const helpBtn = screen.getByLabelText("Aide et raccourcis clavier");
 		await userEvent.hover(helpBtn);
 		// Tooltip content should appear
-		expect(screen.getByText(/Mode Draw/i)).toBeTruthy();
-		expect(screen.getByText(/Mode Pan/i)).toBeTruthy();
+		expect(screen.getByText(/Toggle Draw/i)).toBeTruthy();
+		expect(screen.getByText(/Scroll vertical/i)).toBeTruthy();
 	});
 });

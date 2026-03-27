@@ -27,6 +27,7 @@ import {
 	renderPageForOcr,
 } from "@/lib/pdf-renderer.ts";
 import { postProcess } from "@/lib/post-processing.ts";
+import { deskew } from "@/lib/preprocessing/deskew.ts";
 import {
 	preprocessInWorker,
 	terminatePreprocessWorker,
@@ -251,6 +252,10 @@ function App() {
 	const togglePreprocessingPreview = useAppStore(
 		(s) => s.togglePreprocessingPreview,
 	);
+	const skipPreprocessing = useAppStore((s) => s.skipPreprocessing);
+	const toggleSkipPreprocessing = useAppStore(
+		(s) => s.toggleSkipPreprocessing,
+	);
 	const setOcrState = useAppStore((s) => s.setOcrState);
 
 	const zones = useZoneStore((s) => s.zones);
@@ -280,6 +285,30 @@ function App() {
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const detectionAbortRef = useRef<AbortController | null>(null);
 	const pdfProxyRef = useRef<unknown>(null);
+
+	/** Per-page blob URLs for deskewed images (YOLO pipeline). */
+	const [deskewedPageUrls, setDeskewedPageUrls] = useState<Map<number, string>>(
+		() => new Map(),
+	);
+
+	/** Revoke all deskewed page URLs and reset. */
+	const clearDeskewedUrls = useCallback(() => {
+		setDeskewedPageUrls((prev) => {
+			for (const url of prev.values()) URL.revokeObjectURL(url);
+			return new Map();
+		});
+	}, []);
+
+	/** Set a deskewed URL for a specific page (revokes previous if any). */
+	const setDeskewedPageUrl = useCallback((pageIndex: number, blob: Blob) => {
+		setDeskewedPageUrls((prev) => {
+			const next = new Map(prev);
+			const old = next.get(pageIndex);
+			if (old) URL.revokeObjectURL(old);
+			next.set(pageIndex, URL.createObjectURL(blob));
+			return next;
+		});
+	}, []);
 
 	/** Cache of OCR results by zone geometry. Invalidated on file/language change. */
 	const ocrCacheRef = useRef<Map<string, { text: string; confidence: number }>>(
@@ -397,6 +426,7 @@ function App() {
 		terminateYoloWorker();
 		resetLayoutStore();
 		pdfProxyRef.current = null;
+		clearDeskewedUrls();
 		clearFile();
 		resetZones();
 		resetViewport();
@@ -465,7 +495,6 @@ function App() {
 		// Guard: mutual exclusion with OCR and re-entrancy
 		if (useAppStore.getState().ocr.status === "running") return;
 		if (useLayoutStore.getState().detection.status === "running") return;
-
 		const {
 			enabledTypes: types,
 			detectionCache: cache,
@@ -482,6 +511,9 @@ function App() {
 
 		if (!currentFile) return;
 		const fileId = buildFileId(currentFile);
+
+		// Clear previous deskewed image (will be recreated if page is skewed)
+		clearDeskewedUrls();
 
 		// Cache hit → instant recreation (only if all requested types were detected)
 		const cacheCoversTypes =
@@ -551,16 +583,51 @@ function App() {
 					imgHeight = extracted.height;
 				}
 
-				sourceImageSizes[i] = { width: imgWidth, height: imgHeight };
+				// Deskew page before YOLO detection for better accuracy on skewed scans
+				const deskewed = deskew({
+					data: imageData.data as Uint8ClampedArray,
+					width: imageData.width,
+					height: imageData.height,
+				});
+				const wasDeskewed =
+					deskewed.width !== imageData.width ||
+					deskewed.height !== imageData.height;
+
+				// Use deskewed dimensions for coordinate mapping
+				sourceImageSizes[i] = wasDeskewed
+					? { width: deskewed.width, height: deskewed.height }
+					: { width: imgWidth, height: imgHeight };
+
+				// Apply deskewed image visually for all pages
+				if (wasDeskewed) {
+					const canvas = document.createElement("canvas");
+					canvas.width = deskewed.width;
+					canvas.height = deskewed.height;
+					const ctx = canvas.getContext("2d");
+					if (ctx) {
+						const pageIdx = i;
+						const deskewedImageData = new ImageData(
+							new Uint8ClampedArray(deskewed.data),
+							deskewed.width,
+							deskewed.height,
+						);
+						ctx.putImageData(deskewedImageData, 0, 0);
+						canvas.toBlob((blob) => {
+							if (blob) {
+								setDeskewedPageUrl(pageIdx, blob);
+							}
+						});
+					}
+				}
 
 				if (controller.signal.aborted) break;
 
-				// Transfer imageData directly — no copy needed since we don't reuse it
+				// Transfer deskewed image to YOLO worker
 				const response = await detectInYoloWorker(
 					{
-						data: imageData.data as Uint8ClampedArray<ArrayBuffer>,
-						width: imageData.width,
-						height: imageData.height,
+						data: deskewed.data as Uint8ClampedArray<ArrayBuffer>,
+						width: deskewed.width,
+						height: deskewed.height,
 					},
 					i,
 				);
@@ -780,6 +847,7 @@ function App() {
 
 			zonesOrProvider = uncachedSnapshot.map((z) => ({
 				id: z.id,
+				top: z.top,
 				image: cropZoneFromDocument({
 					left: z.left,
 					top: z.top,
@@ -816,8 +884,9 @@ function App() {
 			const adapter = createEngineAdapter(isGlobalOcr);
 			await processZones(zonesOrProvider, {
 				engine: adapter,
-				preprocess: async (image) =>
-					preprocessInWorker(image, { estimatedDPI }),
+				preprocess: useAppStore.getState().skipPreprocessing
+					? undefined
+					: async (image) => preprocessInWorker(image, { estimatedDPI }),
 				signal: controller.signal,
 				onProgress: (progress) => {
 					const current = useAppStore.getState().ocr;
@@ -971,6 +1040,7 @@ function App() {
 						mode={mode}
 						isOcrRunning={isOcrRunning}
 						previewPreprocessing={previewPreprocessing}
+						skipPreprocessing={skipPreprocessing}
 						language={language}
 						isOnline={isOnline}
 						onDetectZones={handleDetectZones}
@@ -986,6 +1056,7 @@ function App() {
 						onModeChange={handleModeChange}
 						onClearZones={handleClearZones}
 						onPreviewToggle={togglePreprocessingPreview}
+						onSkipPreprocessingToggle={toggleSkipPreprocessing}
 						onLanguageChange={handleLanguageChange}
 						onOcrStart={handleOcrStart}
 						onResetZoom={handleResetZoom}
@@ -1042,6 +1113,7 @@ function App() {
 							onPdfProxyReady={(proxy) => {
 								pdfProxyRef.current = proxy;
 							}}
+							deskewedPageUrls={deskewedPageUrls}
 						>
 							{docWidth > 0 && docHeight > 0 && (
 								<FabricOverlay width={docWidth} height={docHeight} />

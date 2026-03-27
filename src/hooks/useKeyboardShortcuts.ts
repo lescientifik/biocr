@@ -4,7 +4,7 @@ import { useCallback, useEffect } from "react";
 
 /**
  * Global keyboard shortcuts for the application.
- * D -> draw mode, V -> pan mode, Delete -> remove selected zone, Escape -> deselect.
+ * D -> toggle draw/pan mode, Delete -> remove selected zone, Escape -> deselect.
  * All shortcuts are disabled when an input, select, or textarea has focus.
  * When deleting an auto zone with a regionKey, the key is tracked in layoutStore
  * so layout detection can skip it on re-run.
@@ -29,13 +29,11 @@ export function useKeyboardShortcuts(): void {
 
 			switch (e.key) {
 				case "d":
-				case "D":
-					setMode("draw");
+				case "D": {
+					const current = useZoneStore.getState().mode;
+					setMode(current === "draw" ? "pan" : "draw");
 					break;
-				case "v":
-				case "V":
-					setMode("pan");
-					break;
+				}
 				case "Delete":
 				case "Backspace": {
 					e.preventDefault();

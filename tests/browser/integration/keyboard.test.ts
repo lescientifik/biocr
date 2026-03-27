@@ -36,13 +36,11 @@ function installKeyboardShortcuts(): () => void {
 		const store = useZoneStore.getState();
 		switch (e.key) {
 			case "d":
-			case "D":
-				store.setMode("draw");
+			case "D": {
+				const current = useZoneStore.getState().mode;
+				store.setMode(current === "draw" ? "pan" : "draw");
 				break;
-			case "v":
-			case "V":
-				store.setMode("pan");
-				break;
+			}
 			case "Delete":
 			case "Backspace": {
 				e.preventDefault();
@@ -94,11 +92,11 @@ describe("Keyboard shortcuts", () => {
 		expect(useZoneStore.getState().mode).toBe("draw");
 	});
 
-	it("16b — V switches to pan mode", () => {
+	it("16b — D toggles back to pan mode", () => {
 		cleanup = installKeyboardShortcuts();
 		useZoneStore.getState().setMode("draw");
 
-		pressKey("v");
+		pressKey("d");
 		expect(useZoneStore.getState().mode).toBe("pan");
 	});
 
